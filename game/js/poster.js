@@ -90,13 +90,13 @@ const SCENES = {
   // The beat as plotted: every boat's tacks up to the windward mark, inked in its sail's colour (the results view).
   thumb4: (view) =>
     raceScene(view, {
-      race: { seed: 38, courseId: 1, laps: 2, weather: 'shifty', rules: 'racing', entries: botEntries(38, 8, [3, 3, 2, 2, 3, 2, 3, 2]), meId: null, preStart: 60, looks: liveryLooks(8) },
-      t: 193,
+      race: { seed: 51, courseId: 1, laps: 2, weather: 'shifty', rules: 'racing', entries: botEntries(51, 8, [3, 3, 2, 2, 3, 2, 3, 2]), meId: null, preStart: 60, looks: liveryLooks(8) },
+      t: 184,
       plot: true,
       cones: 0,
       camera: (s) => {
         const W = s.race.course.targets[1];
-        return { x: W.x + 3, y: W.y + 43, zoom: 7.4 };
+        return { x: W.x - 6, y: W.y + 36, zoom: 8.4 };
       },
     }),
   // The liveries, burgees and wake styles side by side (not store art).
