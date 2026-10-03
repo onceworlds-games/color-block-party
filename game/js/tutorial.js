@@ -18,6 +18,7 @@ export const HINTS = {
   gybe: ['Downwind, Space gybes', 'Downwind, Tack gybes'],
   hike: ['Shift hikes: too much wind', 'Hike: too much wind'],
   layline: ['Dotted lines: tack there', 'Dotted lines: tack there'],
+  headed: ['Headed: tack to the other side', 'Headed: tap Tack'],
   chart: ['Tab shows the whole course', ''],
   finish: ['Finish between the flags', 'Finish between the flags'],
 };
@@ -30,7 +31,7 @@ export function makeTeacher(profile, lesson) {
  * Looks at the race and shows the next useful hint. `limit`: how many times a hint shows in ordinary races.
  * Returns true when the profile changed (a hint was counted).
  */
-export function teach(tc, s, b, notices, now, touch, limit = 2, dt = 0.016) {
+export function teach(tc, s, b, notices, now, touch, limit = 2, dt = 0.016, lift = null) {
   if (!b || b.finished) return false;
   const race = s.race;
   const p = tc.profile;
@@ -63,6 +64,7 @@ export function teach(tc, s, b, notices, now, touch, limit = 2, dt = 0.016) {
   if (show('groove', b.pi === 1 && tc.beatT > 3)) return true;
   if (show('tack', b.pi >= 1 && tc.beatT > 9)) return true;
   if (show('gust', b.gusting)) return true;
+  if (lift && show('headed', lift.headedT > 3 && b.pi >= 1 && b.twa < 70 && b.v > 1 && !b.man)) return true;
   if (show('shadow', b.shadow < 0.85)) return true;
   if (tg && tg.type === 'mark') {
     const d = Math.hypot(tg.x - b.x, tg.y - b.y);

@@ -4,7 +4,7 @@ import { drawChart } from './render/chart.js';
 import { drawAir, drawBarbs } from './render/air.js';
 import { drawBoat, drawShadow, drawTag, drawWakes, updateWakes } from './render/boats.js';
 import { drawMarks, drawLaylines } from './render/marks.js';
-import { drawBoatRing, drawClock, drawFog, drawMarkPointer, drawMiniChart, drawNotice, drawStandings, drawWindRose } from './render/hud.js';
+import { drawBoatRing, drawClock, drawFog, drawMarkPointer, drawMiniChart, drawNotice, drawStamp, drawStandings, drawWindRose } from './render/hud.js';
 import { updateCamera, PALETTE, LIVERIES } from './render/view.js';
 import { hudData, me, standingRows } from './session.js';
 import { coneStrength } from './sim/shadow.js';
@@ -12,6 +12,7 @@ import { windAt, windSample } from './sim/wind.js';
 import { timeToLineFor } from './hints.js';
 
 const W = windSample();
+const TAGP = { x: 0, y: 0 };
 
 export function makeSceneState() {
   return { zoomBias: 0, chartView: false, wakes: new Map(), lastT: 0, bars: [], barsAt: -1, rows: [], rowsAt: -1, tracks: new Map(), trackT: -Infinity, plotAt: -1 };
@@ -218,7 +219,7 @@ export function drawScene(view, sc, s, ui) {
   }
   updateWakes(sc.wakes, race.boats, t, ui.reduced);
   drawWakes(view, sc.wakes, race.boats, t, ui.reduced);
-  drawMarks(view, race.course, b ? b.pi : -1, ui.now, t - race.gunT, ui.reduced);
+  drawMarks(view, race.course, b ? b.pi : -1, ui.now, t - race.gunT, ui.reduced, !!(b && b.ocs));
   // Laylines near the next mark.
   if (b && !b.finished && b.pi > 0) {
     windAt(race.wind, b.x, b.y, t, W);
@@ -250,6 +251,10 @@ export function drawScene(view, sc, s, ui) {
       if (o === b || o.alpha < 0.3 || o.hidden) continue;
       if (b && Number.isFinite(vis) && Math.hypot(o.x - b.x, o.y - b.y) > vis) continue;
       if (view.cam.zoom < 3.2) continue;
+      // Names stay out from under the platform's buttons, the clock and the standings.
+      view.toScreen(o.drawX, o.drawY, TAGP);
+      const ty = TAGP.y - Math.max(18, view.cam.zoom * 3.4);
+      if ((TAGP.x < 190 && ty < 124) || (TAGP.x > view.w - 230 && ty < 150) || (Math.abs(TAGP.x - view.w / 2) < 90 && ty < 70)) continue;
       drawTag(view, o, o.retired ? `${o.name} · retired` : o.name, false);
     }
   }
@@ -269,6 +274,8 @@ function drawHud(view, sc, s, ui) {
     h.down = h.best.down;
     const tg = race.course.targets[b.pi];
     h.markColor = tg?.type === 'mark' ? (tg.side === 'port' ? '#C2412F' : '#B88A22') : '#1E2A33';
+    h.lift = ui.lift ?? null;
+    h.dirty = b.shadow < 0.88 ? Math.round((1 - b.shadow) * 100) : 0;
     drawBoatRing(view, b, h);
   }
   // Narrow screens: the clock sits between the platform's buttons (top left) and the standings (top right), and
@@ -276,6 +283,7 @@ function drawHud(view, sc, s, ui) {
   const narrow = view.w < 480;
   const clockX = narrow ? (148 + (view.w - 126 - 6 - 6)) / 2 : view.w / 2;
   drawClock(view, h, clockX);
+  if (ui.stamp) drawStamp(view, ui.stamp, now);
   drawNotice(view, ui.notice, now, narrow ? 148 : 90);
   if (ui.show?.standings !== false) {
     if (now - sc.rowsAt > 0.25) {

@@ -11,7 +11,8 @@ const { makeAir } = await import('./render/air.js');
 const { makeSession, me, advance } = await import('./session.js');
 const { makeSceneState, aimCamera, drawScene, plotBounds } = await import('./scene.js');
 const { initInput, readInput, setInputEnabled, RACE_CONTROLS } = await import('./input.js');
-const { makeNotices, eventNotice, currentNotice, notify, ordinal } = await import('./hints.js');
+const { makeNotices, eventNotice, currentNotice, notify, ordinal, makeLift, updateLift } = await import('./hints.js');
+const { windAt, windSample } = await import('./sim/wind.js');
 const { makeMatch, buildMatch, dropMatch, tickMatch, onMatchState, endMatch, RESULTS_PUBLIC_MS } = await import('./match.js');
 const { botEntries } = await import('./sim/skippers.js');
 const { cleanSettings, courseIndex, courseSettings, autoWeather, WEATHER_NAMES } = await import('./sim/setup.js');
@@ -48,6 +49,8 @@ const app = {
   lobbyHidden: null,
   controls: null,
   notices: makeNotices(),
+  lift: makeLift(),
+  stamp: null,
   scene: makeSceneState(),
   air: makeAir(),
   teacher: null,
@@ -191,6 +194,8 @@ function current() {
       app.ghostNext = 0;
       app.teacher = makeTeacher(app.profile, false);
       app.notices = makeNotices();
+      app.lift = makeLift();
+      app.stamp = null;
       if (app.match.setup?.trial) loadGhost(app.match.setup.courseId);
     }
     if (app.match.session) return { s: app.match.session, kind: 'match' };
@@ -261,8 +266,13 @@ function tick(ts) {
   for (const e of events) {
     const cue = eventNotice(app.notices, e, meId, now, { slow: mine ? mine.v < mine.target * 0.85 : false });
     if (cue) audio.cue(cue, e, meId);
+    if (e.type === 'finish' && e.id === meId) finishStamp(cur.s, e, now);
   }
-  if (mine && app.teacher && teach(app.teacher, cur.s, mine, app.notices, now, platform.touch, app.solo?.kind === 'lesson' ? 99 : 2, dt)) markDirty();
+  if (mine && !mine.finished) {
+    windAt(cur.s.race.wind, mine.x, mine.y, cur.s.race.t, WS);
+    updateLift(app.lift, WS.shift, mine.side, dt);
+  }
+  if (mine && app.teacher && teach(app.teacher, cur.s, mine, app.notices, now, platform.touch, app.solo?.kind === 'lesson' ? 99 : 2, dt, app.lift)) markDirty();
   setControls(!!mine && !mine.finished && !app.closed && !(cur.kind === 'solo' && (app.solo.paused || app.solo.done)));
   presence(cur.kind);
   // Picture.
@@ -290,6 +300,8 @@ function tick(ts) {
     chart: app.chart,
     air: app.air,
     extra,
+    lift: mine && !mine.finished && app.lift.now !== null ? app.lift.deg : null,
+    stamp: cur.kind === 'preview' ? null : app.stamp,
     plot: plotted,
     streaks: plotted ? 0 : undefined,
     show: { mini: cur.kind !== 'preview', standings: cur.kind !== 'preview', rose: cur.kind !== 'preview' },
@@ -297,6 +309,16 @@ function tick(ts) {
   });
   route(cur);
   flushSave();
+}
+
+const WS = windSample();
+
+/** The finish as a rubber stamp on the chart: place, time, and how far behind the winner. */
+function finishStamp(s, e, now) {
+  const race = s.race;
+  const gap = race.firstFinishT !== null && e.place > 1 ? e.t - race.firstFinishT : null;
+  app.stamp = { at: now, place: e.place, ordinal: ordinal(e.place), t: e.t, gap, fleet: race.boats.length };
+  if (!app.reduced) view.cam.shake = Math.max(view.cam.shake, 5);
 }
 
 const bearingOf = (race) => Math.round((((race.seed % 360) + 360) % 360) / 5) * 5;
@@ -310,7 +332,7 @@ function framePreview(s) {
     for (const b of s.race.boats) if (!lead || b.pi > lead.pi || (b.pi === lead.pi && b.y < lead.y)) lead = b;
     if (lead) {
       // The leaders sail through the lower part of the screen, under the wordmark and the button.
-      cam.tzoom = Math.min(view.w, view.h) / (view.w < 640 ? 64 : 95);
+      cam.tzoom = Math.min(view.w, view.h) / (view.w < 640 ? 52 : 66);
       cam.tx = lead.drawX;
       cam.ty = lead.drawY - (view.h * 0.27) / cam.tzoom;
     }
@@ -619,6 +641,8 @@ function beginSolo(so) {
   app.career = false;
   app.teacher = makeTeacher(app.profile, so.kind === 'lesson');
   app.notices = makeNotices();
+  app.lift = makeLift();
+  app.stamp = null;
   app.uiKey = '';
   audio.unlock();
   audio.cue('ui');

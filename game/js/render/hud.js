@@ -253,6 +253,15 @@ export function drawBoatRing(view, me, h) {
   text(ctx, h.speed.toFixed(1), lx, ly, { font: `600 15px ${FONT_MONO}` });
   text(ctx, 'kn', lx + 31, ly, { font: `italic 500 11px ${FONT_SERIF}`, color: PALETTE.inkSoft });
   if (h.vmg !== null) text(ctx, `VMG ${h.vmg.toFixed(1)}`, lx, ly + 15, { font: `500 11px ${FONT_MONO}`, color: PALETTE.inkSoft });
+  // What the water is telling the helm: over early, someone's dirty air, a header or a lift.
+  let tag = null;
+  if (me.ocs) tag = ['OVER EARLY · GO BACK', PALETTE.red];
+  else if (h.dirty) tag = [`DIRTY AIR  -${h.dirty}%`, PALETTE.red];
+  else if (h.lift !== null && h.lift !== undefined && me.twa < 75 && !me.irons) {
+    if (h.lift <= -6) tag = [`HEADED  ${Math.abs(Math.round(h.lift))}°`, PALETTE.red];
+    else if (h.lift >= 6) tag = [`LIFTED  ${Math.round(h.lift)}°`, '#1F5A3F'];
+  }
+  if (tag) text(ctx, tag[0], 0, R + 44, { font: `700 11px ${FONT_SERIF}`, align: 'center', spacing: '0.14em', color: tag[1] });
   // Stamina, while it matters.
   if (h.stamina < 0.995 || me.hiking) {
     const bw = 44;
@@ -395,4 +404,55 @@ export function drawMiniChart(view, x, y, size, course, boats, meId, nextPi) {
   ctx.strokeStyle = 'rgba(30,42,51,0.7)';
   ctx.strokeRect(X(vb.x0), Y(vb.y0), (vb.x1 - vb.x0) * s, (vb.y1 - vb.y0) * s);
   ctx.restore();
+}
+
+
+/** The finish as a rubber stamp on the chart: a double ring, the place, the time and the gap. */
+export function drawStamp(view, st, now) {
+  const age = now - st.at;
+  const life = 4.2;
+  if (age < 0 || age > life) return;
+  const ctx = view.ctx;
+  const a = Math.min(1, age / 0.12, (life - age) / 0.7);
+  const e = Math.min(1, age / 0.22);
+  const k = 1 + 0.55 * (1 - e * e * (3 - 2 * e));
+  const scale = (view.w < 480 ? 0.78 : 1) * k;
+  const first = st.place === 1;
+  const color = first ? PALETTE.red : PALETTE.ink;
+  ctx.save();
+  ctx.translate(view.w / 2, view.h * (view.w < 480 ? 0.32 : 0.36));
+  ctx.rotate(-0.07);
+  ctx.scale(scale, scale);
+  ctx.globalAlpha = a * 0.94;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 3;
+  roundRect(ctx, -118, -66, 236, 132, 8);
+  ctx.stroke();
+  ctx.lineWidth = 1.2;
+  roundRect(ctx, -111, -59, 222, 118, 5);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.letterSpacing = '0.3em';
+  ctx.font = `600 11px ${FONT_SERIF}`;
+  ctx.fillText(first ? 'LINE HONOURS' : 'FINISHED', 0.15 * 11, -38);
+  ctx.letterSpacing = '0px';
+  ctx.font = `italic 600 62px ${FONT_SERIF}`;
+  ctx.fillText(st.ordinal, 0, 18);
+  ctx.font = `500 17px ${FONT_MONO}`;
+  const mm = Math.floor(st.t / 60);
+  const time = `${mm}:${(st.t - mm * 60).toFixed(1).padStart(4, '0')}`;
+  ctx.fillText(st.gap !== null && st.gap !== undefined ? `${time}  +${st.gap.toFixed(1)}` : time, 0, 46);
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }

@@ -119,3 +119,23 @@ export function timeToLineFor(b, race) {
   const t = timeToLine(b, h, best);
   return t >= 99 ? null : t;
 }
+
+
+/** How far the wind has swung from its mean at the boat, as a sailor reads it: + lifted (a free turn toward the mark), - headed. */
+export function makeLift() {
+  return { now: null, mean: null, deg: 0, headedT: 0, side: 1 };
+}
+
+export function updateLift(L, shift, side, dt) {
+  if (!Number.isFinite(shift)) return L.deg;
+  if (L.now === null || side !== L.side) {
+    if (L.now === null) L.now = L.mean = shift;
+    L.side = side;
+  }
+  L.now += (shift - L.now) * (1 - Math.exp(-dt / 2.2));
+  L.mean += (shift - L.mean) * (1 - Math.exp(-dt / 40));
+  // A veer (clockwise) heads the starboard tack and lifts the port one.
+  L.deg = -((L.now - L.mean) * 180 / Math.PI) * side;
+  L.headedT = L.deg < -6 ? L.headedT + dt : 0;
+  return L.deg;
+}

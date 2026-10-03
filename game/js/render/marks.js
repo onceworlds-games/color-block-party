@@ -2,6 +2,7 @@
 // arrows on the next mark; gates; the start line between the committee boat and the pin; the finish flags; laylines.
 
 import { PALETTE, FONT_SERIF } from './view.js';
+import { MARK_ZONE } from '../sim/rules.js';
 
 const P = { x: 0, y: 0 };
 
@@ -22,22 +23,31 @@ function label(view, x, y, text, dx = 0, dy = -16, color = PALETTE.ink, italic =
   ctx.restore();
 }
 
-function buoy(view, x, y, color, r = 1.05) {
+function buoy(view, x, y, color, r = 1.45) {
   const ctx = view.ctx;
   const z = view.cam.zoom;
-  const rr = Math.max(r, 3.2 / z);
+  const rr = Math.max(r, 3.6 / z);
+  // A drop of print offset, the coloured float, a pale band and the ink topmark: flat, bold, readable at a glance.
   ctx.beginPath();
-  ctx.arc(x + 0.9 / z, y + 0.7 / z, rr, 0, Math.PI * 2);
-  ctx.fillStyle = color;
+  ctx.arc(x + 1.1 / z, y + 0.9 / z, rr, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(14,42,58,0.28)';
   ctx.fill();
   ctx.beginPath();
   ctx.arc(x, y, rr, 0, Math.PI * 2);
-  ctx.strokeStyle = PALETTE.ink;
-  ctx.lineWidth = 1.3 / z;
-  ctx.stroke();
-  // The topmark.
+  ctx.fillStyle = color;
+  ctx.fill();
   ctx.beginPath();
-  ctx.arc(x, y, rr * 0.32, 0, Math.PI * 2);
+  ctx.arc(x, y, rr * 0.62, 0, Math.PI * 2);
+  ctx.strokeStyle = PALETTE.paperLight;
+  ctx.lineWidth = rr * 0.22;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, rr, 0, Math.PI * 2);
+  ctx.strokeStyle = PALETTE.ink;
+  ctx.lineWidth = 1.5 / z;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, rr * 0.28, 0, Math.PI * 2);
   ctx.fillStyle = PALETTE.ink;
   ctx.fill();
 }
@@ -149,21 +159,23 @@ function chequer(view, x, y, t) {
  * Draws the course: every mark and line; `next` is the index of the player's next target (highlighted), `raceT` the
  * race time (the start line fades after the start).
  */
-export function drawMarks(view, course, next, t, raceT, reduced) {
+export function drawMarks(view, course, next, t, raceT, reduced, ocs = false) {
   const ctx = view.ctx;
   const z = view.cam.zoom;
   const T = course.targets;
   // The start line: dashed, bold before the start.
   const s = course.start;
   const before = raceT < 20;
-  ctx.strokeStyle = before ? 'rgba(30,42,51,0.8)' : 'rgba(30,42,51,0.3)';
-  ctx.lineWidth = (before ? 1.6 : 1) / z;
+  ctx.strokeStyle = ocs ? PALETTE.red : before ? 'rgba(30,42,51,0.8)' : 'rgba(30,42,51,0.3)';
+  ctx.lineWidth = (ocs ? 2.6 : before ? 1.6 : 1) / z;
   ctx.setLineDash([5 / z, 4 / z]);
+  if (ocs && !reduced) ctx.lineDashOffset = -(t * 14) / z;
   ctx.beginPath();
   ctx.moveTo(s.x1, s.y1);
   ctx.lineTo(s.x2, s.y2);
   ctx.stroke();
   ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
   committee(view, course.committee, t);
   buoy(view, course.pin.x, course.pin.y, PALETTE.mustard, 0.9);
   if (before && z > 1.4) label(view, course.pin.x, course.pin.y, 'PIN', 0, 16, PALETTE.ink, true, 11);
@@ -179,6 +191,14 @@ export function drawMarks(view, course, next, t, raceT, reduced) {
       if (isNext) {
         tg.pulse = (t * 8) % 7;
         roundingArrow(view, tg, !reduced);
+        // Three boat-lengths round it: the fleet sorts out the rounding in here, so a touch is only a bump.
+        ctx.beginPath();
+        ctx.arc(tg.x, tg.y, MARK_ZONE, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(30,42,51,0.32)';
+        ctx.lineWidth = 1.1 / z;
+        ctx.setLineDash([2 / z, 6 / z]);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
       buoy(view, tg.x, tg.y, tg.side === 'port' ? PALETTE.red : PALETTE.mustard);
       if (z > 1.2) label(view, tg.x, tg.y, tg.name.toUpperCase(), 0, -18, isNext ? PALETTE.ink : PALETTE.inkSoft, true, isNext ? 13 : 11);

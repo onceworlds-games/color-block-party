@@ -7,6 +7,7 @@ import { SETTINGS, courseIndex, WEATHER_NAMES } from './sim/setup.js';
 import { COURSES } from './sim/course.js';
 import { CLASSES } from './sim/polar.js';
 import { CUPS, cupOpen } from './career.js';
+import { platform } from './platform.js';
 
 const root = () => document.getElementById('ui');
 
@@ -42,6 +43,8 @@ export function showTitle(onSail, label = 'Sail') {
   const wrap = el('div', 'screen title');
   const mark = el('h1', 'wordmark', 'TACK');
   const go = button(label, onSail, 'primary big');
+  // Enter does it too: say so where there is a keyboard.
+  if (!platform.touch) go.append(el('kbd', '', 'Enter'));
   wrap.append(mark, go);
   root().replaceChildren(wrap);
 }
