@@ -176,8 +176,13 @@ function previewSession() {
 
 /** The session on screen now, and how to treat it. */
 function current() {
-  if (app.solo) return { s: app.solo.session, kind: 'solo' };
   const room = app.room;
+  // A race of one's own ends when a match one is part of begins.
+  if (app.solo && room && room.match?.phase !== 'lobby' && room.match?.participants?.includes(room.me.id)) {
+    leaveSolo();
+    notify(app.notices, performance.now() / 1000, 'The race is starting', { dur: 2.5, prio: 6 });
+  }
+  if (app.solo) return { s: app.solo.session, kind: 'solo' };
   if (room && room.match?.phase === 'playing' && room.match.id) {
     if (app.match.mid !== room.match.id) {
       buildMatch(app.match, room, { names, checkpoint: app.checkpoint });
@@ -205,6 +210,7 @@ async function loadGhost(courseId) {
 
 let last = performance.now();
 let workMs = 0;
+let frames = 0;
 
 function frame(ts) {
   requestAnimationFrame(frame);
@@ -222,6 +228,7 @@ function frame(ts) {
     }
   }
   workMs = workMs * 0.9 + (performance.now() - w0) * 0.1;
+  frames++;
 }
 
 function tick(ts) {
@@ -653,4 +660,4 @@ requestAnimationFrame((t) => {
   last = t;
   frame(t);
 });
-window.__tack = { app, view, workMs: () => workMs };
+window.__tack = { app, view, workMs: () => workMs, frames: () => frames };

@@ -33,7 +33,7 @@ export function drawWakes(view, wakes, boats, t, reduced) {
   for (const b of boats) {
     const w = wakes.get(b.id);
     if (!w || w.pts.length < 2 || b.alpha < 0.3) continue;
-    const life = reduced ? 1.8 : 3.2;
+    const life = reduced ? 1.2 : 2.2;
     for (const side of [-1, 1]) {
       ctx.beginPath();
       let started = false;
@@ -50,8 +50,8 @@ export function drawWakes(view, wakes, boats, t, reduced) {
         }
         ctx.lineTo(px, py);
       }
-      ctx.strokeStyle = `rgba(251,248,240,${(0.85 * b.alpha).toFixed(2)})`;
-      ctx.lineWidth = Math.max(1.2 / z, Math.min(0.7, 0.18 + b.v * 0.07));
+      ctx.strokeStyle = `rgba(251,248,240,${(0.7 * b.alpha).toFixed(2)})`;
+      ctx.lineWidth = Math.max(1 / z, Math.min(0.5, 0.12 + b.v * 0.05));
       ctx.stroke();
     }
   }

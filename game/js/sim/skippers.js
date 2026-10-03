@@ -388,12 +388,14 @@ function aimPoint(b, tg) {
     const side = Math.sign(dx * nx + dy * ny) || app;
     const along = dx * tg.rx + dy * tg.ry;
     if (side === app || b.wind < 0) {
-      if (along < -6) return { x: tg.x + nx * app * 7 - tg.rx * 2, y: tg.y + ny * app * 7 - tg.ry * 2 };
-      return { x: tg.x + tg.rx * 7, y: tg.y + tg.ry * 7 };
+      // Up the approach side to a point beside the mark...
+      if (along < 0) return { x: tg.x + nx * app * 9 - tg.rx, y: tg.y + ny * app * 9 - tg.ry };
+      // ...then, level with it, round it: across the rounding ray to the exit side, clear of the buoy.
+      return { x: tg.x + tg.rx * 6 - nx * app * 9, y: tg.y + tg.ry * 6 - ny * app * 9 };
     }
     // Wrong side: go round behind the mark to the side the rounding starts from.
-    if (along > -4) return { x: tg.x - tg.rx * 9 + nx * app * 3, y: tg.y - tg.ry * 9 + ny * app * 3 };
-    return { x: tg.x + nx * app * 7 - tg.rx * 2, y: tg.y + ny * app * 7 - tg.ry * 2 };
+    if (along > -4) return { x: tg.x - tg.rx * 10 + nx * app * 4, y: tg.y - tg.ry * 10 + ny * app * 4 };
+    return { x: tg.x + nx * app * 9 - tg.rx, y: tg.y + ny * app * 9 - tg.ry };
   }
   const lx = tg.x2 - tg.x1;
   const ly = tg.y2 - tg.y1;
@@ -668,7 +670,10 @@ function avoid(race, b, br, sk, aim, wind, best, from) {
     }
   }
   b.tackReq = false;
-  if (bestH !== null && bestC >= -2.5) {
+  // Near a mark there is no stopping: take the best way through.
+  const tg = race.course.targets[b.pi];
+  const atMark = tg && tg.type === 'mark' && Math.hypot(tg.x - b.x, tg.y - b.y) < 22;
+  if (bestH !== null && (bestC >= -2.5 || (atMark && t > race.gunT))) {
     br.duckUntil = t + 0.6;
     br.duckAim = bestH;
     return bestH;

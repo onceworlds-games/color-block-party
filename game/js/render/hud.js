@@ -138,7 +138,7 @@ export function drawWindRose(view, x, y, r, h) {
   ctx.stroke();
   // North.
   const na = -h.bearing * DEG - Math.PI / 2;
-  text(ctx, 'N', Math.cos(na) * (r + 11), Math.sin(na) * (r + 11) + 4, { font: `700 11px ${FONT_SERIF}`, align: 'center', halo: true });
+  text(ctx, 'N', Math.cos(na) * (r - 13), Math.sin(na) * (r - 13) + 4, { font: `700 11px ${FONT_SERIF}`, align: 'center', halo: true });
   // Mean wind (thin) and the wind now (bold), arrows blowing toward the centre.
   const arrow = (shift, len, width, color, dash) => {
     const a = -Math.PI / 2 + shift; // where it comes from
