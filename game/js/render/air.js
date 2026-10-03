@@ -7,8 +7,8 @@ import { hashf } from '../sim/rng.js';
 
 const W = { vx: 0, vy: 0, ms: 0, kn: 0, shift: 0, gust: 1 };
 
-export function makeAir() {
-  return { streaks: [], cells: [], count: 0 };
+export function makeAir(rand = Math.random) {
+  return { streaks: [], cells: [], count: 0, rand };
 }
 
 /** Moves and redraws the streaks; `n` how many to keep (by quality and motion settings). */
@@ -18,41 +18,65 @@ export function drawAir(view, air, wind, t, dt, n, reduced) {
   const B = view.bounds(20);
   drawCells(view, air, wind, t, reduced);
   if (wind.front) drawFront(view, wind, t);
-  // Streaks: short wisps that ride the wind, longer and darker in the gusts.
+  // Streaks: long wisps of air that ride the wind, tapering at both ends, longer and darker in the gusts. Drawn as
+  // thin bowed leaves in four batches by strength (fading in and out).
   const s = air.streaks;
-  while (s.length < n) s.push(spawn(B, Math.random() * 3));
+  while (s.length < n) s.push(spawn(B, air.rand() * 3, air.rand));
   if (s.length > n) s.length = n;
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = PALETTE.ink;
   const speed = reduced ? 0.45 : 1;
+  for (const path of BATCH) path.n = 0;
   for (const p of s) {
     p.age += dt;
     if (p.age > p.life || p.x < B.x0 || p.x > B.x1 || p.y < B.y0 || p.y > B.y1) {
-      Object.assign(p, spawn(B, 0));
+      Object.assign(p, spawn(B, 0, air.rand));
       continue;
     }
     windAt(wind, p.x, p.y, t, W);
     p.x += W.vx * dt * speed * 1.4;
     p.y += W.vy * dt * speed * 1.4;
-    const f = Math.min(1, p.age / 0.7, (p.life - p.age) / 0.9);
+    const f = Math.min(1, p.age / 0.8, (p.life - p.age) / 1.1) * Math.min(1.4, 0.55 + 0.45 * W.gust);
+    if (f <= 0.05) continue;
     const ms = W.ms || 1;
-    const len = (1.4 + ms * 0.5) * p.len * Math.min(1.5, W.gust);
-    const ux = W.vx / ms;
-    const uy = W.vy / ms;
+    const len = (2.6 + ms * 0.85) * p.len * Math.min(1.5, W.gust);
+    p.ux = W.vx / ms;
+    p.uy = W.vy / ms;
+    p.L = len;
+    p.w = (0.75 + 0.5 * Math.max(0, W.gust - 1)) / z;
     // A gentle S: the wisp bends across the wind and back.
-    const bend = Math.sin(p.age * 2 + p.len * 7) * len * 0.12;
-    ctx.globalAlpha = 0.2 * f * Math.min(1.5, 0.55 + 0.45 * W.gust);
-    ctx.lineWidth = (0.9 + 0.6 * Math.max(0, W.gust - 1)) / z;
+    p.bend = Math.sin(p.age * 1.6 + p.len * 7 + p.x * 0.05) * len * 0.16;
+    BATCH[Math.min(3, Math.floor(f * 3.2))].push(p);
+  }
+  ctx.fillStyle = PALETTE.ink;
+  for (let k = 0; k < 4; k++) {
+    const path = BATCH[k];
+    if (!path.n) continue;
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-    ctx.quadraticCurveTo(p.x - ux * len * 0.5 - uy * bend, p.y - uy * len * 0.5 + ux * bend, p.x - ux * len, p.y - uy * len);
-    ctx.stroke();
+    for (let i = 0; i < path.n; i++) {
+      const p = path.items[i];
+      const { ux, uy, L, w, bend } = p;
+      // Head at the particle, tail upwind; the middle swells to w either side of the bowed centre line.
+      const mx = p.x - ux * L * 0.5 - uy * bend;
+      const my = p.y - uy * L * 0.5 + ux * bend;
+      ctx.moveTo(p.x, p.y);
+      ctx.quadraticCurveTo(mx - uy * w * 2, my + ux * w * 2, p.x - ux * L, p.y - uy * L);
+      ctx.quadraticCurveTo(mx + uy * w * 2, my - ux * w * 2, p.x, p.y);
+    }
+    ctx.globalAlpha = 0.07 + 0.065 * k;
+    ctx.fill();
   }
   ctx.globalAlpha = 1;
 }
 
-function spawn(B, age) {
-  return { x: B.x0 + Math.random() * (B.x1 - B.x0), y: B.y0 + Math.random() * (B.y1 - B.y0), age, life: 1.8 + Math.random() * 2.2, len: 0.5 + Math.random() * 0.7 };
+const BATCH = [0, 1, 2, 3].map(() => {
+  const b = { items: [], n: 0 };
+  b.push = (p) => {
+    b.items[b.n++] = p;
+  };
+  return b;
+});
+
+function spawn(B, age, rand = Math.random) {
+  return { x: B.x0 + rand() * (B.x1 - B.x0), y: B.y0 + rand() * (B.y1 - B.y0), age, life: 2.4 + rand() * 2.6, len: 0.5 + rand() * 0.8, ux: 0, uy: -1, L: 1, w: 0.1, bend: 0 };
 }
 
 /** Gusts as fields of dark ripples, lulls as glassy pale patches. Ripples are seeded per cell so they don't flicker. */
@@ -78,17 +102,18 @@ function drawCells(view, air, wind, t, reduced) {
       ctx.fill();
       continue;
     }
-    // A gust: a darker wash, then ripple ticks across the wind.
+    // A gust: a darker wash, then ripple ticks across the wind (the darker the water, the harder it blows).
     const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
-    g.addColorStop(0, `rgba(78,110,124,${(0.3 * mag).toFixed(3)})`);
+    g.addColorStop(0, `rgba(78,110,124,${Math.min(0.42, 0.65 * mag).toFixed(3)})`);
+    g.addColorStop(0.6, `rgba(78,110,124,${Math.min(0.25, 0.38 * mag).toFixed(3)})`);
     g.addColorStop(1, 'rgba(78,110,124,0)');
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
     ctx.fill();
-    const n = Math.round(c.r * c.r * 0.09 * mag);
-    ctx.strokeStyle = PALETTE.slate;
-    ctx.lineWidth = 1.1 / z;
+    const n = Math.round(c.r * c.r * 0.16 * mag);
+    ctx.strokeStyle = PALETTE.ink;
+    ctx.lineWidth = 1.2 / z;
     ctx.beginPath();
     const tw = reduced ? 0 : t;
     for (let k = 0; k < n; k++) {
@@ -103,7 +128,7 @@ function drawCells(view, air, wind, t, reduced) {
       ctx.moveTo(x - l, y);
       ctx.quadraticCurveTo(x, y + l * 0.55 * dirx + 0.4, x + l, y);
     }
-    ctx.globalAlpha = Math.min(0.75, 0.35 + mag);
+    ctx.globalAlpha = Math.min(0.6, 0.25 + mag);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }

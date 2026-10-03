@@ -174,8 +174,10 @@ function stepper(label, value, editable, prev, next) {
  */
 export function showResults(r) {
   const wrap = el('div', 'screen results');
-  const card = el('div', 'card');
-  card.append(el('div', 'eyebrow', r.eyebrow ?? 'RESULTS'), el('h2', 'card-title', r.title), el('div', 'course-sub', r.sub ?? ''));
+  // The heading over the chart (where the race is plotted), the table beside it like a chart's legend.
+  const head = el('header', 'harbour-head');
+  head.append(el('div', 'eyebrow', r.eyebrow ?? 'RESULTS'), el('h2', 'course-name', r.title), el('div', 'course-sub', r.sub ?? ''));
+  const card = el('section', 'panel legend');
   const table = el('ol', 'table');
   for (const row of r.rows) {
     const li = el('li', row.me ? 'me' : '');
@@ -198,8 +200,8 @@ export function showResults(r) {
   if (r.onContinue) foot.append(button(r.continueLabel ?? 'Harbour', r.onContinue, 'primary'));
   if (r.onAgain) foot.append(button('Again', r.onAgain));
   if (r.countdown !== null && r.countdown !== undefined) foot.append(el('span', 'countdown', `Harbour in ${Math.max(0, Math.ceil(r.countdown))}s`));
-  card.append(foot);
-  wrap.append(card);
+  if (foot.childNodes.length) card.append(foot);
+  wrap.append(head, card);
   root().replaceChildren(wrap);
 }
 
@@ -217,7 +219,7 @@ export function showCareer(c) {
     const cur = c.profile.career.cur?.cup === i ? c.profile.career.cur : null;
     const li = el('li', open ? '' : 'locked');
     const txt = el('div', 'cup-text');
-    txt.append(el('div', 'cup-name', `${i + 1}. ${cup.name}`), el('div', 'cup-note', open ? cup.note : 'Medal in the cup before to open.'));
+    txt.append(el('div', 'cup-name', `${i + 1}. ${cup.name}`), el('div', 'cup-note', open ? cup.note : `Medal in the ${CUPS[i - 1].name}`));
     li.append(txt);
     if (medal) li.append(el('span', `medal small m${medal}`, ['', 'Bronze', 'Silver', 'Gold'][medal]));
     if (open) li.append(button(cur ? `Race ${cur.race + 1}` : 'Sail', () => c.onSail(i), cur ? 'primary' : ''));

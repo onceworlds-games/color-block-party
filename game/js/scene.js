@@ -5,7 +5,7 @@ import { drawAir, drawBarbs } from './render/air.js';
 import { drawBoat, drawShadow, drawTag, drawWakes, updateWakes } from './render/boats.js';
 import { drawMarks, drawLaylines } from './render/marks.js';
 import { drawBoatRing, drawClock, drawFog, drawMarkPointer, drawMiniChart, drawNotice, drawStandings, drawWindRose } from './render/hud.js';
-import { updateCamera } from './render/view.js';
+import { updateCamera, PALETTE, LIVERIES } from './render/view.js';
 import { hudData, me, standingRows } from './session.js';
 import { coneStrength } from './sim/shadow.js';
 import { windAt, windSample } from './sim/wind.js';
@@ -14,7 +14,84 @@ import { timeToLineFor } from './hints.js';
 const W = windSample();
 
 export function makeSceneState() {
-  return { zoomBias: 0, chartView: false, wakes: new Map(), lastT: 0, bars: [], barsAt: -1, rows: [], rowsAt: -1 };
+  return { zoomBias: 0, chartView: false, wakes: new Map(), lastT: 0, bars: [], barsAt: -1, rows: [], rowsAt: -1, tracks: new Map(), trackT: -Infinity, plotAt: -1 };
+}
+
+const TRACK_DT = 1; // seconds of race time between plotted points
+const TRACK_MAX = 1800; // points per boat
+
+/** Each boat's path from the gun, a point a second: the race as plotted (chart view and the results). */
+export function recordTracks(sc, race) {
+  if (race.t < race.gunT || race.t < sc.trackT + TRACK_DT) return;
+  sc.trackT = race.t;
+  for (const b of race.boats) {
+    if (b.hidden || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
+    let tr = sc.tracks.get(b.id);
+    if (!tr) sc.tracks.set(b.id, (tr = { pts: [], done: false, livery: 0 }));
+    tr.livery = b.livery ?? 0;
+    if (tr.done || tr.pts.length >= TRACK_MAX * 2) continue;
+    tr.pts.push(b.x, b.y);
+    if (b.finished || b.retired) tr.done = true;
+  }
+}
+
+/** What the plotted race covers (the tracks and the marks), for framing the results; the course's bounds before any. */
+export function plotBounds(sc, race) {
+  if (sc.boundsAt === sc.trackT && sc.bounds) return sc.bounds;
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  const add = (x, y) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    x0 = Math.min(x0, x);
+    x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y);
+    y1 = Math.max(y1, y);
+  };
+  for (const tr of sc.tracks.values()) for (let i = 0; i < tr.pts.length; i += 2) add(tr.pts[i], tr.pts[i + 1]);
+  if (!Number.isFinite(x0)) return race.course.bounds;
+  for (const tg of race.course.targets) add(tg.x, tg.y);
+  sc.boundsAt = sc.trackT;
+  sc.bounds = { x0: x0 - 12, y0: y0 - 18, x1: x1 + 12, y1: y1 + 12 };
+  return sc.bounds;
+}
+
+/** The plotted tracks in each sail's colour, inked in over a couple of seconds when the results open. */
+function drawTracks(view, sc, meId, reveal) {
+  const ctx = view.ctx;
+  const z = view.cam.zoom;
+  let longest = 0;
+  for (const tr of sc.tracks.values()) longest = Math.max(longest, tr.pts.length / 2);
+  const upto = Math.ceil(longest * reveal);
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  for (const [id, tr] of sc.tracks) {
+    const n = Math.min(tr.pts.length / 2, upto);
+    if (n < 2) continue;
+    const mine = id === meId;
+    const color = (LIVERIES[tr.livery] ?? LIVERIES[0]).color;
+    ctx.beginPath();
+    ctx.moveTo(tr.pts[0], tr.pts[1]);
+    for (let i = 1; i < n; i++) ctx.lineTo(tr.pts[2 * i], tr.pts[2 * i + 1]);
+    // A pale under-stroke keeps light colours legible on the paper.
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = PALETTE.paperLight;
+    ctx.lineWidth = (mine ? 5 : 3.6) / z;
+    ctx.stroke();
+    ctx.globalAlpha = mine ? 1 : 0.82;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = (mine ? 2.6 : 1.6) / z;
+    ctx.stroke();
+    if (reveal < 1 && n < tr.pts.length / 2) {
+      ctx.beginPath();
+      ctx.arc(tr.pts[2 * n - 2], tr.pts[2 * n - 1], 3.2 / z, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+  }
+  ctx.restore();
 }
 
 /**
@@ -101,11 +178,32 @@ export function drawScene(view, sc, s, ui) {
   sc.lastT = ui.now;
   drawChart(view, ui.chart, ui.quality, ui.bearing);
   view.worldTransform();
-  const streaks = ui.reduced ? 40 : ui.quality === 'low' ? 60 : ui.quality === 'medium' ? 110 : 170;
+  const streaks = ui.streaks ?? (ui.reduced ? 26 : ui.quality === 'low' ? 40 : ui.quality === 'medium' ? 70 : 100);
   drawAir(view, ui.air, race.wind, t, dt, streaks, ui.reduced);
   if (ui.quality !== 'low') drawBarbs(view, race.wind, t);
-  // Shadows that matter to the player: cones touching them, and their own cone when it touches someone.
-  if (b && !race.noShadows) {
+  // The race as plotted: with the results (inked in), or while the chart view is held.
+  recordTracks(sc, race);
+  if (ui.plot) {
+    if (sc.plotAt < 0) sc.plotAt = ui.now;
+    drawTracks(view, sc, s.meId, ui.reduced || ui.plot === 'all' ? 1 : Math.min(1, (ui.now - sc.plotAt) / 2.4));
+  } else {
+    sc.plotAt = -1;
+    if (sc.chartView) drawTracks(view, sc, s.meId, 1);
+  }
+  // Every shadow that falls on a boat (store art and watching), or those that matter to the player.
+  if (ui.cones && b === null && !race.noShadows) {
+    // Store art and watching: only the strongest shadows (ui.cones of them), so they explain rather than clutter.
+    const list = [];
+    for (const o of race.boats) {
+      if (o.finished || o.retired || o.ghost) continue;
+      const ms = Math.hypot(o.wx, o.wy) || 1;
+      let st = 0;
+      for (const x of race.boats) if (x !== o) st = Math.max(st, coneStrength(o.x, o.y, o.wx / ms, o.wy / ms, x.x, x.y));
+      if (st > 0.14) list.push([st, o]);
+    }
+    list.sort((p, q) => q[0] - p[0]);
+    for (const [st, o] of list.slice(0, typeof ui.cones === 'number' ? ui.cones : 3)) drawShadow(view, o, st > 0.22);
+  } else if (b && !race.noShadows) {
     for (const o of race.boats) {
       if (o.finished || o.retired || o.ghost) continue;
       if (o === b) {
@@ -129,18 +227,21 @@ export function drawScene(view, sc, s, ui) {
   }
   // Boats, with the visibility of fog.
   const vis = race.wind.visibility;
+  const fog = b && Number.isFinite(vis);
   if (ui.extra) for (const g of ui.extra) drawBoat(view, g, ui.now);
   for (const o of race.boats) {
     if (o.hidden) continue;
     o.alpha = o.retired ? 0.35 : o.finished || o.parked ? 0.6 : o.ghost && o !== b ? 0.45 : 1;
-    if (b && Number.isFinite(vis) && o !== b && Math.hypot(o.x - b.x, o.y - b.y) > vis) continue;
+    if (fog && o !== b && Math.hypot(o.x - b.x, o.y - b.y) > vis) continue;
     o.foul = o.foulFlag > 0;
-    drawBoat(view, o, ui.now);
+    if (!(fog && o === b)) drawBoat(view, o, ui.now);
   }
-  // Fog over everything in the world.
-  if (b && Number.isFinite(vis)) {
+  // Fog over the world, with the player's own boat clear above it.
+  if (fog) {
     view.screenTransform();
-    drawFog(view, b, vis);
+    drawFog(view, b, vis, t);
+    view.worldTransform();
+    if (!b.hidden) drawBoat(view, b, ui.now);
   }
   // Name tags (screen space).
   view.screenTransform();

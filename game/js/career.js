@@ -9,7 +9,7 @@ export const POINTS = [0, 10, 8, 6, 5, 4, 3, 2, 1];
 export const CUPS = [
   {
     name: 'Harbour Cup',
-    note: 'Gentle water, friendly fleet.',
+    note: 'Moderate · casual',
     rules: 'casual',
     skills: [0, 0, 0, 1, 1],
     races: [
@@ -20,7 +20,7 @@ export const CUPS = [
   },
   {
     name: 'Estuary Cup',
-    note: 'Shoals, a channel, a tide.',
+    note: 'Light airs · shoals',
     rules: 'casual',
     skills: [0, 1, 1, 1, 2],
     races: [
@@ -31,7 +31,7 @@ export const CUPS = [
   },
   {
     name: 'Gannet Cup',
-    note: 'Shifts, and racing rules.',
+    note: 'Shifty · racing rules',
     rules: 'racing',
     skills: [1, 1, 2, 2, 2],
     races: [
@@ -42,7 +42,7 @@ export const CUPS = [
   },
   {
     name: 'Fresh Breeze Cup',
-    note: 'Hike, or be overpowered.',
+    note: 'Fresh breeze',
     rules: 'racing',
     skills: [1, 2, 2, 2, 3],
     mixed: true,
@@ -54,7 +54,7 @@ export const CUPS = [
   },
   {
     name: 'Fog Cup',
-    note: 'Trust the compass.',
+    note: 'Fog',
     rules: 'racing',
     skills: [2, 2, 2, 3, 3],
     races: [
@@ -65,7 +65,7 @@ export const CUPS = [
   },
   {
     name: 'Squall Cup',
-    note: 'A front is due. Reef your nerves.',
+    note: 'Squalls',
     rules: 'racing',
     skills: [1, 2, 2, 3, 3, 3],
     races: [
@@ -76,7 +76,7 @@ export const CUPS = [
   },
   {
     name: 'Coastal Cup',
-    note: 'Islands, shadows, every class.',
+    note: 'Islands · mixed classes',
     rules: 'racing',
     skills: [2, 2, 3, 3, 3, 3],
     mixed: true,
@@ -88,7 +88,7 @@ export const CUPS = [
   },
   {
     name: 'Admiralty Cup',
-    note: 'Legends only. Good luck.',
+    note: 'Legends',
     rules: 'racing',
     skills: [3, 3, 3, 3, 3, 3, 3],
     mixed: true,

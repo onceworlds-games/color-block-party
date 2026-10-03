@@ -3,6 +3,7 @@
 
 import { PALETTE, LIVERIES, FONT_SERIF, FONT_MONO } from './view.js';
 import { shapePath } from './boats.js';
+import { hashf } from '../sim/rng.js';
 
 const DEG = Math.PI / 180;
 const S = { x: 0, y: 0 };
@@ -305,15 +306,37 @@ export function drawMarkPointer(view, tg, me, name, safe) {
 }
 
 /** Fog: the chart washes out to pale grey beyond the visibility around the boat. */
-export function drawFog(view, me, visibility) {
+export function drawFog(view, me, visibility, t = 0) {
   if (!Number.isFinite(visibility)) return;
   const ctx = view.ctx;
+  const z = view.cam.zoom;
+  // A cool veil over everything, then banks of thicker fog drifting down the wind (seeded, repeating).
+  ctx.fillStyle = 'rgba(206,212,212,0.2)';
+  ctx.fillRect(0, 0, view.w, view.h);
+  const tile = 230;
+  for (let i = 0; i < 11; i++) {
+    const r = (24 + 30 * hashf(i, 2, 9)) * z;
+    let x = hashf(i, 0, 9) * tile + Math.sin(t * 0.05 + i) * 6;
+    let y = hashf(i, 1, 9) * tile + t * 1.1;
+    x = view.cam.x + ((((x - view.cam.x) % tile) + tile * 1.5) % tile) - tile / 2;
+    y = view.cam.y + ((((y - view.cam.y) % tile) + tile * 1.5) % tile) - tile / 2;
+    view.toScreen(x, y, S);
+    if (S.x + r < 0 || S.x - r > view.w || S.y + r < 0 || S.y - r > view.h) continue;
+    const g = ctx.createRadialGradient(S.x, S.y, 0, S.x, S.y, r);
+    g.addColorStop(0, 'rgba(224,228,227,0.5)');
+    g.addColorStop(0.6, 'rgba(224,228,227,0.24)');
+    g.addColorStop(1, 'rgba(224,228,227,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(S.x - r, S.y - r, 2 * r, 2 * r);
+  }
+  // Thinning to grey with distance: rivals loom out of it and are gone past the visibility.
   view.toScreen(me.drawX, me.drawY, S);
-  const r1 = visibility * view.cam.zoom;
-  const r0 = r1 * 0.55;
-  const g = ctx.createRadialGradient(S.x, S.y, r0, S.x, S.y, r1);
-  g.addColorStop(0, 'rgba(228,226,220,0)');
-  g.addColorStop(1, 'rgba(228,226,220,0.94)');
+  const r1 = visibility * z;
+  const g = ctx.createRadialGradient(S.x, S.y, r1 * 0.14, S.x, S.y, r1);
+  g.addColorStop(0, 'rgba(226,229,228,0)');
+  g.addColorStop(0.3, 'rgba(226,229,228,0.4)');
+  g.addColorStop(0.65, 'rgba(226,229,228,0.8)');
+  g.addColorStop(1, 'rgba(226,229,228,0.96)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, view.w, view.h);
 }
