@@ -23,6 +23,7 @@ export function makeRace(o) {
   const baseKn = baseKnFor(seed, weather);
   const fleet = Math.max(1, o.entries?.length ?? 1);
   const course = buildCourse(def, { laps: o.laps ?? 2, fleet, scale: courseScale(def, baseKn) });
+  course.currentMul = Math.max(0.5, Math.min(1, baseKn / 12));
   const preStart = o.preStart ?? 60;
   const raceLen = course.total / 2.7 + 20;
   const wind = makeWind(seed, weather, course.bounds, preStart + raceLen);
@@ -43,7 +44,8 @@ export function makeRace(o) {
     finishers: 0,
     firstFinishT: null,
     endT: null,
-    hardLimit: preStart + Math.max(420, raceLen * 2.6),
+    hardLimit: preStart + Math.max(480, raceLen * 3.2),
+    closeAfter: o.closeAfter ?? null, // seconds the finish stays open after the winner (default: 30% of the winner's time, at least 60)
     noShadows: !!o.trial,
     noCollisions: !!o.trial,
     trial: !!o.trial,
@@ -183,7 +185,7 @@ export function stepRace(race, dt = SIM_DT) {
   if (race.phase === 'race' && race.endT === null) {
     const still = race.boats.filter((b) => racing(b));
     const winner = race.firstFinishT;
-    const lateLimit = winner !== null ? race.gunT + winner + Math.max(60, 0.3 * winner) : Infinity;
+    const lateLimit = winner !== null ? race.gunT + winner + (race.closeAfter ?? Math.max(60, 0.3 * winner)) : Infinity;
     if (race.boats.length > 0 && (still.length === 0 || t >= lateLimit || t >= race.hardLimit)) {
       race.endT = t;
       race.phase = 'done';

@@ -473,8 +473,9 @@ function drawCurrents(view, chart) {
   const ctx = view.ctx;
   const z = view.cam.zoom;
   for (const c of chart.course.currents) {
-    const vx = c.vx * c.c - c.vy * c.s;
-    const vy = c.vx * c.s + c.vy * c.c;
+    const mul = chart.course.currentMul ?? 1;
+    const vx = (c.vx * c.c - c.vy * c.s) * mul;
+    const vy = (c.vx * c.s + c.vy * c.c) * mul;
     const sp = Math.hypot(vx, vy);
     if (sp < 0.05) continue;
     const ux = vx / sp;

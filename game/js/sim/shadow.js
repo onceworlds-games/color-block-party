@@ -1,5 +1,5 @@
 // Wind shadows: every sail leaves a cone of tired air downwind, and islands leave huge ones. Shadows multiply, with a
-// floor, and slow the wind for anything inside them.
+// floor (a lower one behind an island), and slow the wind for anything inside them.
 
 import { DEG } from './polar.js';
 
@@ -7,10 +7,11 @@ export const SHADOW = {
   len: 36,
   half: 22 * DEG,
   max: 0.5,
-  floor: 0.4,
+  floor: 0.55, // however many sails are upwind, a boat keeps this much of its wind
+  isleFloor: 0.3,
   isleLen: 160,
   isleHalf: 35 * DEG,
-  isleMax: 0.85,
+  isleMax: 0.62,
 };
 const TAN = Math.tan(SHADOW.half);
 const ISLE_TAN = Math.tan(SHADOW.isleHalf);
@@ -36,7 +37,7 @@ export function interacts(b) {
 }
 
 /**
- * The factor (floor..1) the wind is multiplied by at boat `b`, from every other boat and every island. Also records
+ * The factor (isleFloor..1) the wind is multiplied by at boat `b`, from every other boat and every island. Also records
  * who is sitting in whose shadow (for "Wind Thief"): `onShadow(caster, receiver, strength)` if given.
  */
 export function shadowFactor(race, b, onShadow) {
@@ -55,11 +56,12 @@ export function shadowFactor(race, b, onShadow) {
       if (onShadow) onShadow(o, b, s);
     }
   }
+  f = Math.max(SHADOW.floor, f);
   for (const il of race.course.islands) {
     const s = islandShadow(race, il, b.x, b.y);
     if (s > 0) f *= 1 - s;
   }
-  return Math.max(SHADOW.floor, f);
+  return Math.max(SHADOW.isleFloor, f);
 }
 
 /** An island's shadow at a point; the cone's apex sits upwind so the cone is as wide as the island at its centre. */

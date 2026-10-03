@@ -33,8 +33,8 @@ export const COURSES = [
     id: 3, name: 'Gannet Sound', kind: 'Coastal', lapped: false, scalable: false,
     lap: [m(-30, -215, 'Gannet', 'port'), m(-175, -160, 'Heron', 'port'), m(-150, -40, 'Bell', 'port'), m(-20, -105, 'Saddle', 'starboard')],
     finish: { x: 60, y: -105, w: 30, rot: 1.3 },
-    islands: [isl(-95, -115, 34, 11, 1.25, 0.9, 0.4), isl(55, -190, 26, 12, 1, 1.2, -0.2)],
-    shoals: [shoal(-118, -66, 18, 9, 0.3)],
+    islands: [isl(-97, -134, 30, 11, 1.25, 0.9, 0.4), isl(60, -190, 26, 12, 1, 1.2, -0.2)],
+    shoals: [shoal(-192, -98, 16, 8, 1.2)],
   },
   {
     id: 4, name: 'The Narrows', kind: 'Channel', lapped: true, scalable: false,
@@ -73,10 +73,10 @@ export const COURSES = [
   },
   {
     id: 9, name: 'Lighthouse Point', kind: 'Coastal', lapped: false, scalable: false,
-    lap: [m(-60, -170, 'Lantern', 'port'), m(-170, -250, 'Cormorant', 'port'), m(-20, -300, 'Light', 'starboard'), m(110, -190, 'Skerry', 'starboard'), m(70, -60, 'Ledge', 'starboard'), m(-20, -50, 'Buoy', 'port')],
+    lap: [m(-60, -170, 'Lantern', 'port'), m(-170, -250, 'Cormorant', 'starboard'), m(-20, -300, 'Light', 'starboard'), m(110, -190, 'Skerry', 'starboard'), m(70, -60, 'Ledge', 'starboard'), m(-20, -50, 'Buoy', 'starboard')],
     finish: { x: -45, y: -110, w: 30, rot: 0.2 },
-    islands: [isl(55, -255, 40, 41, 1.6, 0.8, 0.5), isl(-120, -100, 22, 42, 1, 1, 0)],
-    shoals: [shoal(120, -125, 15, 10, 0.4)],
+    islands: [isl(84, -289, 40, 41, 1.6, 0.8, 0.5), isl(-120, -100, 22, 42, 1, 1, 0)],
+    shoals: [shoal(142, -118, 15, 10, 0.4)],
     currents: [cur(40, -175, 70, 220, 0, 0.5, 0.3)],
   },
   {
@@ -96,9 +96,9 @@ export const COURSES = [
   {
     id: 12, name: 'Archipelago', kind: 'Coastal', lapped: false, scalable: false,
     lap: [m(10, -235, 'Petrel', 'port'), m(-145, -195, 'Shag', 'port'), m(-60, -95, 'Auk', 'starboard'), m(-150, -20, 'Fulmar', 'port')],
-    finish: { x: -60, y: 15, w: 30, rot: 0 },
-    islands: [isl(-40, -165, 16, 61), isl(55, -125, 18, 62, 1.2, 0.8), isl(-115, -125, 15, 63), isl(-5, -60, 13, 64), isl(-195, -95, 17, 65, 0.9, 1.3), isl(90, -215, 14, 66)],
-    shoals: [shoal(-95, -55, 12, 7, 0.9)],
+    finish: { x: -75, y: 5, w: 30, rot: 1.94 },
+    islands: [isl(-40, -165, 16, 61), isl(55, -125, 18, 62, 1.2, 0.8), isl(-128, -118, 15, 63), isl(122, -52, 13, 64), isl(-195, -95, 17, 65, 0.9, 1.3), isl(90, -215, 14, 66)],
+    shoals: [shoal(-80, -36, 12, 7, 0.9)],
   },
 ];
 
@@ -391,7 +391,10 @@ export function inShoal(s, x, y) {
   return (lx * lx) / (s.rx * s.rx) + (ly * ly) / (s.ry * s.ry) <= 1;
 }
 
-/** The current at a point (m/s), summed over the course's zones with soft edges. Writes { vx, vy } into out. */
+/**
+ * The current at a point (m/s), summed over the course's zones with soft edges, scaled by `course.currentMul` (slacker
+ * in light airs, so a stream never holds a fleet still). Writes { vx, vy } into out.
+ */
 export function currentAt(course, x, y, out) {
   out.vx = 0;
   out.vy = 0;
@@ -408,8 +411,9 @@ export function currentAt(course, x, y, out) {
     const f = fx * fy;
     if (f <= 0) continue;
     // The zone's flow is given in its own frame: rotate it into the course frame.
-    out.vx += (c.vx * c.c - c.vy * c.s) * f;
-    out.vy += (c.vx * c.s + c.vy * c.c) * f;
+    const k = f * (course.currentMul ?? 1);
+    out.vx += (c.vx * c.c - c.vy * c.s) * k;
+    out.vy += (c.vx * c.s + c.vy * c.c) * k;
   }
   return out;
 }

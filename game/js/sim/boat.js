@@ -139,8 +139,8 @@ export function stepBoat(b, wind, cur, t, dt, slow = 1) {
   let event = null;
   const best = vmgAngles(b.cls, wind.kn);
 
-  // Tack or gybe on request.
-  if (b.tackReq) {
+  // Tack or gybe on request (asked for while aground, it happens as soon as she floats).
+  if (b.tackReq && !(b.grounded > 0 && !b.man && !b.finished)) {
     b.tackReq = false;
     const m = startManoeuvre(b, t);
     if (m) event = m.kind;

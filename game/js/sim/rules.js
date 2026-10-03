@@ -7,6 +7,7 @@ import { BOAT_R } from './boat.js';
 export const CONTACT_LOSS = 0.15;
 export const FOUL_STALL = 2;
 const PAIR_COOLDOWN = 1.5;
+const FOUL_COOLDOWN = 8; // two boats tangled together pay once, not every bump
 
 /**
  * A boat that must keep clear of everyone right now: serving a penalty, returning from over the line, tacking, or
@@ -101,7 +102,10 @@ export function resolveContacts(race, events) {
           const other = culprit === a ? b : a;
           if (!culprit.remote) {
             culprit.v *= 1 - CONTACT_LOSS;
-            if (culprit.penalty <= 0) {
+            const fk = `f${key}`;
+            const lastFoul = race.contacts.get(fk);
+            if (culprit.penalty <= 0 && (lastFoul === undefined || now - lastFoul >= FOUL_COOLDOWN)) {
+              race.contacts.set(fk, now);
               culprit.penalty = FOUL_STALL;
               culprit.foulFlag = 6;
               culprit.stats.fouls++;
@@ -118,7 +122,7 @@ export function resolveContacts(race, events) {
     }
   }
   // Forget old pairs so the map stays small.
-  if (race.contacts.size > 64) for (const [k, t] of race.contacts) if (now - t > 5) race.contacts.delete(k);
+  if (race.contacts.size > 64) for (const [k, t] of race.contacts) if (now - t > FOUL_COOLDOWN) race.contacts.delete(k);
 }
 
 function touchable(b) {

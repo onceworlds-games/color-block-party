@@ -6,7 +6,7 @@ import { headingFor, angDiff, wrapAngle } from './boat.js';
 import { CLASSES, DEG, overpowered, targetSpeed, vmgAngles } from './polar.js';
 import { rng, hash32 } from './rng.js';
 import { collisionCourse, giveWay } from './rules.js';
-import { inPolygon, inShoal } from './course.js';
+import { inPolygon, inShoal, nearestOnPolygon } from './course.js';
 import { windAt } from './wind.js';
 
 export const SKILLS = [
@@ -144,6 +144,16 @@ function think(race, b, br) {
   else if (b.ocs) aim = headingFor(wind.vx, wind.vy, 150, b.side); // back below the line: bear away and run down
   else aim = sail(race, b, br, sk, pe, wind, best, from);
 
+  // Aground (or bounced off a shoal): sail away from the shore for a few seconds before trying the way again.
+  if (b.stats.grounds !== (br.grounds ?? 0)) {
+    br.grounds = b.stats.grounds;
+    const away = shoreAway(race, b);
+    if (away) {
+      br.escapeUntil = t + 4.5;
+      br.escapeH = Math.atan2(away.y, away.x);
+    }
+  }
+  if (t < (br.escapeUntil ?? 0)) aim = sailable(br.escapeH, wind, best, b.side);
   // Keep clear: give way to boats with rights, and don't sail into anyone from behind.
   aim = avoid(race, b, br, sk, aim, wind, best, from);
   // A steady hand, or not.
@@ -154,9 +164,18 @@ function think(race, b, br) {
   const twaAim = Math.abs(rel) / DEG;
   if (br.brake) {
     // Stopping on purpose: luffing or head to wind, never a change of tack.
-  } else if (twaAim < cls.nogo + 1 && !b.man) b.aim = headingFor(wind.vx, wind.vy, cls.nogo + 1.5, b.side);
+  } else if (twaAim < cls.nogo + 2 + sk.noise * 0.6 && !b.man) b.aim = headingFor(wind.vx, wind.vy, cls.nogo + 3 + sk.noise * 0.6, b.side);
   // A wanted heading on the other tack: change tack with a manoeuvre, never by steering through the wind.
   else if (!b.man && !b.tackReq && twaAim > cls.nogo + 1 && twaAim < 174 && -Math.sign(rel) !== b.side) b.tackReq = true;
+}
+
+/** The sailable heading nearest `h`: itself, or close-hauled on whichever tack points nearer it. */
+function sailable(h, wind, best, side) {
+  const from = Math.atan2(-wind.vy, -wind.vx);
+  if (Math.abs(angDiff(from, h)) / DEG >= best.up + 4) return h;
+  const a = headingFor(wind.vx, wind.vy, best.up + 6, side);
+  const o = headingFor(wind.vx, wind.vy, best.up + 6, -side);
+  return Math.abs(angDiff(a, h)) <= Math.abs(angDiff(o, h)) ? a : o;
 }
 
 const clampLine = (race, x) => Math.max(-race.course.halfLine + 4, Math.min(race.course.halfLine - 4, x));
@@ -364,9 +383,18 @@ function sail(race, b, br, sk, pe, wind, best, from) {
     br.layErr = (br.r.next() - 0.35) * sk.layErr;
     br.headT = 0;
   }
-  const P = routeAround(race, b, aimPoint(b, tg));
-  const brg = Math.atan2(P.y - b.y, P.x - b.x);
-  const offA = Math.abs(angDiff(from, brg)) / DEG;
+  let P = routeAround(race, b, aimPoint(b, tg));
+  let brg = Math.atan2(P.y - b.y, P.x - b.x);
+  let offA = Math.abs(angDiff(from, brg)) / DEG;
+  // Upwind with an island or a shoal in the way: out to its side first, then up beside it.
+  if (offA < best.up + 1.5) {
+    const W = besideUpwind(race, b, P);
+    if (W) {
+      P = W;
+      brg = Math.atan2(P.y - b.y, P.x - b.x);
+      offA = Math.abs(angDiff(from, brg)) / DEG;
+    }
+  }
   const dist = Math.hypot(P.x - b.x, P.y - b.y);
   if (offA < best.up + 1.5) return beat(race, b, br, sk, pe, wind, best, P, dist);
   if (offA > best.down - 2 && dist > 12) return run(race, b, br, sk, pe, wind, best, P, dist);
@@ -376,7 +404,8 @@ function sail(race, b, br, sk, pe, wind, best, from) {
 /**
  * Where to steer for a target. A mark: from the side a correct rounding starts on, alongside it and then across its
  * rounding ray; from the wrong side, round the back of it first (and unwind a wrong rounding the same way).
- * A gate or a line: the nearest part of it, kept off the ends.
+ * A gate or a line: the nearest part of it, kept off the ends (from the near side: a boat that got past it outside the
+ * ends goes back first).
  */
 function aimPoint(b, tg) {
   if (tg.type === 'mark') {
@@ -388,8 +417,12 @@ function aimPoint(b, tg) {
     const side = Math.sign(dx * nx + dy * ny) || app;
     const along = dx * tg.rx + dy * tg.ry;
     if (side === app || b.wind < 0) {
-      // Up the approach side to a point beside the mark...
-      if (along < 0) return { x: tg.x + nx * app * 9 - tg.rx, y: tg.y + ny * app * 9 - tg.ry };
+      // Up the approach side to a point beside the mark (no further out than the boat already is: one that sagged
+      // close doesn't climb back out)...
+      if (along < 0) {
+        const L = Math.max(4.5, Math.min(9, Math.abs(dx * nx + dy * ny)));
+        return { x: tg.x + nx * app * L + tg.rx * 1.5, y: tg.y + ny * app * L + tg.ry * 1.5 }; // just level: reaching it starts the turn
+      }
       // ...then, level with it, round it: across the rounding ray to the exit side, clear of the buoy.
       return { x: tg.x + tg.rx * 6 - nx * app * 9, y: tg.y + tg.ry * 6 - ny * app * 9 };
     }
@@ -404,7 +437,9 @@ function aimPoint(b, tg) {
   let k = ((b.x - tg.x1) * lx + (b.y - tg.y1) * ly) / l2;
   const pad = Math.min(0.45, 3.5 / len);
   k = Math.max(pad, Math.min(1 - pad, k));
-  return { x: tg.x1 + lx * k + tg.fx * 3, y: tg.y1 + ly * k + tg.fy * 3 };
+  // Already past it without it counting (round an end, or backwards): back to the near side first, then through.
+  const through = b.track.side > 0 ? -6 : 3;
+  return { x: tg.x1 + lx * k + tg.fx * through, y: tg.y1 + ly * k + tg.fy * through };
 }
 
 /**
@@ -414,7 +449,10 @@ function aimPoint(b, tg) {
  */
 function beat(race, b, br, sk, pe, wind, best, P, dist) {
   const t = race.t;
-  const up = Math.max(CLASSES[b.cls].nogo + 3, best.up + pe.pinch + angleError(br, t));
+  let up = Math.max(CLASSES[b.cls].nogo + 5 + sk.noise * 0.6, best.up + pe.pinch + angleError(br, t));
+  // Slow (after a tack, a foul, dirty air): foot off a little to build speed before pointing again.
+  const vUp = targetSpeed(CLASSES[b.cls], best.up, b.wkn || 1, false);
+  if (!b.man && b.v < vUp * 0.6) up += 8 * (1 - b.v / (vUp * 0.6));
   const cur = b.side;
   const curH = headingFor(wind.vx, wind.vy, up, cur);
   if (b.man) return curH;
@@ -438,7 +476,8 @@ function beat(race, b, br, sk, pe, wind, best, P, dist) {
   // Too far out to one side (the mark well round on the other tack): come back toward the middle.
   const cone = 22 + pe.risk * 6 + (pe.sideBias ? 12 : 0);
   if (ready && (cur > 0 ? offE > cone : offE < -cone) && dist > 30) return doTack(b, br, t, wind, up);
-  if (since > 2.5 && blocked(race, b, curH, 10 + b.v * 3)) return doTack(b, br, t, wind, up, true);
+  const hit = hazardAhead(race, b, curH, 14 + b.v * 4);
+  if (hit < Infinity && (since > 2.5 || hit < 9)) return doTack(b, br, t, wind, up, true);
   // Dirty air: tack away when it lasts.
   if (b.shadow < 0.86) br.shadowT += 0.2;
   else br.shadowT = Math.max(0, br.shadowT - 0.4);
@@ -487,7 +526,8 @@ function run(race, b, br, sk, pe, wind, best, P, dist) {
   else br.headT = 0;
   if (ready && br.headT >= sk.confirm * 1.5) return doTack(b, br, t, wind, down);
   if (ready && offDown > 180 - down - 8 && !onFavoured && dist > 30) return doTack(b, br, t, wind, down);
-  if (since > 2.5 && blocked(race, b, curH, 10 + b.v * 3)) return doTack(b, br, t, wind, down, true);
+  const hit = hazardAhead(race, b, curH, 14 + b.v * 4);
+  if (hit < Infinity && (since > 2.5 || hit < 9)) return doTack(b, br, t, wind, down, true);
   return curH;
 }
 
@@ -557,8 +597,10 @@ function routeAround(race, b, P) {
     for (let k = 0; k < 12; k++) {
       const a = (k / 12) * Math.PI * 2;
       const W = { x: o.x + Math.cos(a) * (o.r + 3), y: o.y + Math.sin(a) * (o.r + 3) };
+      // Already there: the next point round. A boat on the ring may sail along it (the first leg gets some slack).
+      if (Math.hypot(W.x - b.x, W.y - b.y) < 10) continue;
       if (obs.some((q) => (W.x - q.x) ** 2 + (W.y - q.y) ** 2 < q.r * q.r)) continue;
-      if (obs.some((q) => segHitsCircle(b.x, b.y, W.x, W.y, q))) continue;
+      if (obs.some((q) => segHitsCircle(b.x, b.y, W.x, W.y, { x: q.x, y: q.y, r: q.r - 6 }))) continue;
       const second = obs.some((q) => segHitsCircle(W.x, W.y, P.x, P.y, q)) ? 60 : 0;
       const cost = Math.hypot(W.x - b.x, W.y - b.y) + Math.hypot(P.x - W.x, P.y - W.y) + second;
       if (cost < bestCost) {
@@ -569,6 +611,60 @@ function routeAround(race, b, P) {
   }
   return best ?? P;
 }
+
+/**
+ * A beat with an obstacle in its way (upwind of the boat, inside the corridor to the target, the boat not yet beside
+ * it): the point beside the obstacle's widest part, on the boat's side (or the target's, when that is well to one side).
+ */
+function besideUpwind(race, b, P) {
+  for (const o of obstaclesOf(race)) {
+    if (!(o.y < b.y - 2 && o.y > P.y + o.r * 0.4)) continue;
+    if (Math.abs(b.x - o.x) > o.r + 8) continue;
+    const k = (b.y - o.y) / Math.max(1, b.y - P.y);
+    const xLine = b.x + (P.x - b.x) * k;
+    if (Math.abs(o.x - xLine) > o.r + 18) continue;
+    const s = Math.abs(P.x - o.x) > o.r + 10 ? Math.sign(P.x - o.x) : Math.sign(b.x - o.x) || 1;
+    return { x: o.x + s * (o.r + 12), y: o.y + o.r * 0.25 };
+  }
+  return null;
+}
+
+/** How far along heading `h` (sampled every 4 m, up to `ahead`) the boat would leave the course or run aground. */
+function hazardAhead(race, b, h, ahead) {
+  for (let d = 4; d <= ahead; d += 4) if (blocked(race, b, h, d)) return d;
+  return Infinity;
+}
+
+/** Away from the nearest shore or shoal: a unit vector, or null when there is none near. */
+function shoreAway(race, b) {
+  let best = null;
+  let bd = 30;
+  for (const il of race.course.islands) {
+    if (Math.hypot(b.x - il.x, b.y - il.y) > il.rr + 30) continue;
+    nearestOnPolygon(il.poly, b.x, b.y, NEAR);
+    let nx = b.x - NEAR.x;
+    let ny = b.y - NEAR.y;
+    if (inPolygon(il.poly, b.x, b.y) || Math.hypot(nx, ny) < 0.3) {
+      nx = b.x - il.x;
+      ny = b.y - il.y;
+    }
+    if (NEAR.d < bd) {
+      bd = NEAR.d;
+      best = { x: nx, y: ny };
+    }
+  }
+  for (const sh of race.course.shoals) {
+    const d = Math.hypot(b.x - sh.x, b.y - sh.y) - Math.max(sh.rx, sh.ry);
+    if (d < bd) {
+      bd = d;
+      best = { x: b.x - sh.x, y: b.y - sh.y };
+    }
+  }
+  if (!best) return null;
+  const l = Math.hypot(best.x, best.y) || 1;
+  return { x: best.x / l, y: best.y / l };
+}
+const NEAR = { x: 0, y: 0, d: 0 };
 
 /** Would sailing `h` for `ahead` metres leave the course or run aground? */
 function blocked(race, b, h, ahead) {
