@@ -1,0 +1,8 @@
+{
+  "slug": "tack",
+  "name": "Tack",
+  "description": "Read the wind, steal theirs. Top-down sailboat racing where every boat casts a wind shadow.",
+  "dir": "game",
+  "productionBranch": "main",
+  "genre": "Racing"
+}
