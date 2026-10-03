@@ -175,3 +175,16 @@ test('a lone sailor with rival skippers gets a shorter pre-start; two or more ge
   assert.equal(one.preStart, 45);
   assert.equal(two.preStart, 60);
 });
+
+test('a page drawing four frames a second still keeps pace with the room clock', () => {
+  const srv = makeServer({ seed: 5, settings: { course: 7, courseHi: 0, laps: 1, weather: 'fresh', fleet: 'six', rules: 'casual' } });
+  const cs = ['ann', 'bo'].map((id) => client(srv, id));
+  srv.start(1);
+  runUntil(srv, cs, () => false, 90000);
+  for (let i = 0; i < 240; i++) frame(srv, cs, 250); // a minute of quarter-second frames
+  for (const c of cs) {
+    const behind = c.room.matchNow() / 1000 - c.m.session.simT;
+    assert.ok(behind < 1.5, `${c.id} is ${behind.toFixed(1)} s behind the room's clock`);
+    assert.deepEqual(c.errors, []);
+  }
+});

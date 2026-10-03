@@ -32,6 +32,23 @@ function button(label, onClick, cls = '') {
   return b;
 }
 
+/**
+ * Puts a screen up. A new screen rises in (once: the harbour is rebuilt on every setting, and must not replay it); the
+ * same screen rebuilt keeps its panel's scroll, so picking a colour at the bottom doesn't throw the player to the top.
+ */
+function mount(wrap, name) {
+  const r = root();
+  const prev = r.firstElementChild?.dataset?.screen;
+  const scroll = prev === name ? (r.querySelector('.panel')?.scrollTop ?? 0) : 0;
+  wrap.dataset.screen = name;
+  if (prev !== name) wrap.classList.add('enter');
+  r.replaceChildren(wrap);
+  if (scroll) {
+    const p = wrap.querySelector('.panel');
+    if (p) p.scrollTop = scroll;
+  }
+}
+
 /** Clears the UI layer. */
 export function clearUi() {
   root().replaceChildren();
@@ -46,7 +63,7 @@ export function showTitle(onSail, label = 'Sail') {
   // Enter does it too: say so where there is a keyboard.
   if (!platform.touch) go.append(el('kbd', '', 'Enter'));
   wrap.append(mark, go);
-  root().replaceChildren(wrap);
+  mount(wrap, 'title');
 }
 
 // ------------------------------------------------------------------------------------------------ harbour
@@ -140,7 +157,7 @@ export function showHarbour(h) {
   panel.append(solo, race, boat);
   if (h.notReady) panel.append(el('div', 'waiting', h.notReady));
   wrap.append(head, panel);
-  root().replaceChildren(wrap);
+  mount(wrap, 'harbour');
 }
 
 function step(n, i, d, fn) {
@@ -221,7 +238,7 @@ export function showResults(r) {
   if (r.countdown !== null && r.countdown !== undefined) foot.append(el('span', 'countdown', countdownText(r.countdown)));
   if (foot.childNodes.length) card.append(foot);
   wrap.append(head, card);
-  root().replaceChildren(wrap);
+  mount(wrap, 'results');
 }
 
 const countdownText = (s) => `Harbour in ${Math.max(0, Math.ceil(s))}s`;
@@ -258,7 +275,7 @@ export function showCareer(c) {
   card.append(list, el('div', 'row'));
   card.lastChild.append(button('Harbour', c.onBack));
   wrap.append(card);
-  root().replaceChildren(wrap);
+  mount(wrap, 'career');
 }
 
 // ------------------------------------------------------------------------------------------------ small cards
@@ -269,7 +286,7 @@ export function showPause(onResume) {
   card.append(el('h2', 'card-title', 'Paused'), el('div', 'row'));
   card.lastChild.append(button('Resume', onResume, 'primary'));
   wrap.append(card);
-  root().replaceChildren(wrap);
+  mount(wrap, 'pause');
 }
 
 export function showClosed(reason, onAgain) {
@@ -280,14 +297,14 @@ export function showClosed(reason, onAgain) {
   card.append(el('h2', 'card-title', msg), el('div', 'row'));
   card.lastChild.append(button(label, onAgain, 'primary'));
   wrap.append(card);
-  root().replaceChildren(wrap);
+  mount(wrap, 'closed');
 }
 
 /** A small strip for an in-race action (Skip for the lesson, Retire for a solo race). */
 export function showCorner(items) {
   const wrap = el('div', 'corner');
   for (const [label, fn] of items) wrap.append(button(label, fn, 'ghost'));
-  root().replaceChildren(wrap);
+  mount(wrap, 'corner');
 }
 
 export function parTime(courseId) {

@@ -26,6 +26,8 @@ function down(e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return; // never swallow browser shortcuts
   const k = (e.key || '').toLowerCase();
   if (k === 'tab') {
+    // Held for the whole-course chart while racing; on every other screen Tab moves between the buttons as usual.
+    if (!enabled) return;
     e.preventDefault();
     state.chart = true;
     state.any = true;

@@ -237,6 +237,9 @@ function frame(ts) {
 
 function tick(ts) {
   const dt = Math.min(0.1, Math.max(0, (ts - last) / 1000));
+  // A slow device (a frame of a quarter second) still keeps pace with the room's clock: the match's catch-up budget
+  // follows the frame's real length, not the clamped one the picture and the notices use.
+  const realDt = Math.min(0.5, Math.max(0, (ts - last) / 1000));
   last = ts;
   if (document.hidden) return;
   const now = ts / 1000;
@@ -250,7 +253,7 @@ function tick(ts) {
     mine = me(app.solo.session);
     if (app.solo.done && !app.solo.results) finishSolo();
   } else if (cur.kind === 'match') {
-    events = tickMatch(app.match, app.room, input, look(), dt, performance.now());
+    events = tickMatch(app.match, app.room, input, look(), realDt, performance.now());
     mine = app.match.meId ? me(app.match.session) : null;
     matchResults();
     recordGhost(app.match.session, mine);

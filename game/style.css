@@ -184,4 +184,16 @@ html, body {
   .course-name { font-size: 26px; }
   .panel { max-height: calc(100vh - 150px); }
 }
-@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+/* A screen rises into place once, the way a sheet is laid on the chart table. */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ink { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
+.enter .panel, .enter .card, .enter .harbour-head { animation: rise 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.enter .wordmark { animation: ink 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.enter .btn.big { animation: rise 0.4s 0.12s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.enter .table li { animation: rise 0.3s backwards; }
+.enter .table li:nth-child(2) { animation-delay: 0.04s; }
+.enter .table li:nth-child(3) { animation-delay: 0.08s; }
+.enter .table li:nth-child(4) { animation-delay: 0.12s; }
+.enter .table li:nth-child(5) { animation-delay: 0.16s; }
+.enter .table li:nth-child(n + 6) { animation-delay: 0.2s; }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } .enter *, .enter { animation: none !important; } }
