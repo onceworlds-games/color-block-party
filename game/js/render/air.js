@@ -104,9 +104,9 @@ function drawCells(view, air, wind, t, reduced) {
     }
     // A gust: a darker wash, then ripple ticks across the wind (the darker the water, the harder it blows).
     const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
-    g.addColorStop(0, `rgba(78,110,124,${Math.min(0.42, 0.65 * mag).toFixed(3)})`);
-    g.addColorStop(0.6, `rgba(78,110,124,${Math.min(0.25, 0.38 * mag).toFixed(3)})`);
-    g.addColorStop(1, 'rgba(78,110,124,0)');
+    g.addColorStop(0, `rgba(14,42,58,${Math.min(0.5, 0.8 * mag).toFixed(3)})`);
+    g.addColorStop(0.6, `rgba(14,42,58,${Math.min(0.3, 0.46 * mag).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(14,42,58,0)');
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
@@ -141,9 +141,9 @@ function drawFront(view, wind, t) {
   if (fy < B.y0 - 40 || fy > B.y1 + 40) return;
   const ctx = view.ctx;
   const g = ctx.createLinearGradient(0, fy - 40, 0, fy + 8);
-  g.addColorStop(0, 'rgba(78,110,124,0.22)');
-  g.addColorStop(0.8, 'rgba(78,110,124,0.3)');
-  g.addColorStop(1, 'rgba(78,110,124,0)');
+  g.addColorStop(0, 'rgba(14,42,58,0.26)');
+  g.addColorStop(0.8, 'rgba(14,42,58,0.36)');
+  g.addColorStop(1, 'rgba(14,42,58,0)');
   ctx.fillStyle = g;
   ctx.fillRect(B.x0, Math.max(B.y0, fy - 140), B.x1 - B.x0, Math.min(B.y1, fy + 8) - Math.max(B.y0, fy - 140));
   ctx.strokeStyle = 'rgba(30,42,51,0.55)';

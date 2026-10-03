@@ -271,14 +271,18 @@ function drawHud(view, sc, s, ui) {
     h.markColor = tg?.type === 'mark' ? (tg.side === 'port' ? '#C2412F' : '#B88A22') : '#1E2A33';
     drawBoatRing(view, b, h);
   }
-  drawClock(view, h);
-  drawNotice(view, ui.notice, now);
+  // Narrow screens: the clock sits between the platform's buttons (top left) and the standings (top right), and
+  // notices drop below both.
+  const narrow = view.w < 480;
+  const clockX = narrow ? (148 + (view.w - 126 - 6 - 6)) / 2 : view.w / 2;
+  drawClock(view, h, clockX);
+  drawNotice(view, ui.notice, now, narrow ? 148 : 90);
   if (ui.show?.standings !== false) {
     if (now - sc.rowsAt > 0.25) {
       sc.rows = standingRows(s);
       sc.rowsAt = now;
     }
-    drawStandings(view, sc.rows, s.meId, view.w < 640);
+    drawStandings(view, sc.rows, s.meId, view.w < 640, narrow);
   }
   if (b && h.wind && ui.show?.rose !== false) {
     if (now - sc.barsAt > 1) {

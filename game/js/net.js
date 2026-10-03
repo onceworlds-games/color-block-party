@@ -42,9 +42,10 @@ export function decodeLook(a) {
 }
 
 /** My boat in presence: status 'r' racing, 'h' harbour, 'w' watching, 'l' sailing something of my own. */
-export function boatPresence(b, mid, simT, look) {
+export function boatPresence(b, mid, simT, look, back = false) {
   return {
     s: 'r',
+    rd: back ? 1 : 0, // tapped Harbour on the results: ready to go back
     m: mshort(mid),
     t: r2(simT),
     x: r1(b.x),

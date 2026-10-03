@@ -6,6 +6,7 @@ import { PALETTE, FONT_SERIF } from './view.js';
 import { hashf, rng } from '../sim/rng.js';
 
 const CELL = 2.5; // metres per depth sample
+const SEA = { shallow: [0xc4, 0xe8, 0xdc], mid: [0x86, 0xc4, 0xbc], deep: [0x4f, 0x92, 0xa6] };
 
 /** Smooth value noise (deterministic): 0..1. */
 function vnoise(seed, x, y) {
@@ -62,7 +63,7 @@ export function buildChart(race) {
   return chart;
 }
 
-/** The washes: shallows in teal (deeper means paler), a faint cool tint on all water. 1 texel = CELL metres. */
+/** The washes: the whole sea tinted like an ink wash on the paper, pale aqua in the shallows to slate in the deeps. 1 texel = CELL metres. */
 function makeWash(chart) {
   const { nx, ny, depth } = chart;
   let cv;
@@ -75,26 +76,25 @@ function makeWash(chart) {
   cv.height = ny;
   const g = cv.getContext('2d');
   const img = g.createImageData(nx, ny);
-  const teal = [0x79, 0xa9, 0xa3];
-  const slate = [0x4e, 0x6e, 0x7c];
   const alpha = new Float32Array(nx * ny);
-  const mix = new Float32Array(nx * ny); // 0 teal .. 1 slate
+  const tone = new Float32Array(nx * ny); // 0 shallow .. 1 deep
   for (let k = 0; k < nx * ny; k++) {
     const d = depth[k];
     if (d < -0.5) continue; // land: drawn as ink and hatching on top
-    // Ribbons of wash just inside each depth contour, as a chart-maker's brush lays them; shallows filled in.
+    // Ribbons of deeper wash just inside each depth contour, as a chart-maker's brush lays them.
     let rib = 0;
     for (const L of [5, 10, 15, 20]) rib = Math.max(rib, Math.exp(-(((d - (L - 1.6)) / 1.6) ** 2)) * (L <= 10 ? 1 : 0.7));
-    const shallow = 1 / (1 + Math.exp((d - 4) * 1.4));
-    const deep = 1 / (1 + Math.exp(-(d - 19) * 0.6));
-    alpha[k] = Math.max(0.08 + 0.22 * rib, 0.34 * shallow, 0.2 * deep) * Math.min(1, (d + 0.5) * 2);
-    mix[k] = deep;
+    const t = Math.min(1, Math.max(0, (d - 1.5) / 20));
+    tone[k] = Math.min(1, t * t * (3 - 2 * t) + 0.1 * rib);
+    alpha[k] = (0.9 + 0.06 * rib) * Math.min(1, (d + 0.5) * 2);
   }
   // One soft pass, so texel edges never show.
   const blur = new Float32Array(nx * ny);
+  const blurT = new Float32Array(nx * ny);
   for (let j = 0; j < ny; j++) {
     for (let i = 0; i < nx; i++) {
       let sum = 0;
+      let st = 0;
       let n = 0;
       for (let dj = -1; dj <= 1; dj++) {
         for (let di = -1; di <= 1; di++) {
@@ -102,10 +102,12 @@ function makeWash(chart) {
           const jj = j + dj;
           if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue;
           sum += alpha[jj * nx + ii];
+          st += tone[jj * nx + ii];
           n++;
         }
       }
       blur[j * nx + i] = sum / n;
+      blurT[j * nx + i] = st / n;
     }
   }
   // Fade out toward the texture's edges so it never ends in a line.
@@ -116,11 +118,16 @@ function makeWash(chart) {
       if (e < edge) blur[j * nx + i] *= e / edge;
     }
   }
+  const S = SEA;
   for (let k = 0; k < nx * ny; k++) {
-    const m = mix[k];
-    img.data[k * 4] = teal[0] + (slate[0] - teal[0]) * m;
-    img.data[k * 4 + 1] = teal[1] + (slate[1] - teal[1]) * m;
-    img.data[k * 4 + 2] = teal[2] + (slate[2] - teal[2]) * m;
+    const t = blurT[k];
+    // Three stops: shallow -> mid (at 0.45) -> deep.
+    const u = t < 0.45 ? t / 0.45 : (t - 0.45) / 0.55;
+    const A = t < 0.45 ? S.shallow : S.mid;
+    const B = t < 0.45 ? S.mid : S.deep;
+    img.data[k * 4] = A[0] + (B[0] - A[0]) * u;
+    img.data[k * 4 + 1] = A[1] + (B[1] - A[1]) * u;
+    img.data[k * 4 + 2] = A[2] + (B[2] - A[2]) * u;
     img.data[k * 4 + 3] = Math.round(blur[k] * 255);
   }
   g.putImageData(img, 0, 0);
@@ -286,13 +293,13 @@ export function drawChart(view, chart, q, compassBearing = 0) {
   }
   // Outside the course: a faint shade, and the boundary as a dashed line with ticks.
   const cb = chart.course.bounds;
-  ctx.fillStyle = 'rgba(78,110,124,0.05)';
+  ctx.fillStyle = 'rgba(20,52,68,0.14)';
   ctx.beginPath();
   ctx.rect(B.x0, B.y0, B.x1 - B.x0, B.y1 - B.y0);
   ctx.rect(cb.x0, cb.y0, cb.x1 - cb.x0, cb.y1 - cb.y0);
   ctx.fill('evenodd');
-  ctx.strokeStyle = 'rgba(30,42,51,0.45)';
-  ctx.lineWidth = 1.2 / z;
+  ctx.strokeStyle = 'rgba(30,42,51,0.6)';
+  ctx.lineWidth = 1.3 / z;
   ctx.setLineDash([6 / z, 5 / z]);
   ctx.strokeRect(cb.x0, cb.y0, cb.x1 - cb.x0, cb.y1 - cb.y0);
   ctx.setLineDash([]);
@@ -317,7 +324,7 @@ export function drawChart(view, chart, q, compassBearing = 0) {
   // Depth contours: thin slate lines, the 5 m line heavier.
   if (q !== 'low' || z < 6) {
     for (const ct of chart.contours) {
-      ctx.strokeStyle = ct.level <= 5 ? 'rgba(78,110,124,0.55)' : 'rgba(78,110,124,0.32)';
+      ctx.strokeStyle = ct.level <= 5 ? 'rgba(20,52,68,0.62)' : 'rgba(20,52,68,0.36)';
       ctx.lineWidth = (ct.level === 5 ? 1.3 : 0.9) / z;
       if (ct.level === 20) ctx.setLineDash([3 / z, 3 / z]);
       ctx.beginPath();
@@ -345,7 +352,7 @@ export function drawChart(view, chart, q, compassBearing = 0) {
     ctx.save();
     view.screenTransform();
     ctx.font = `italic 400 ${px}px ${FONT_SERIF}`;
-    ctx.fillStyle = 'rgba(78,110,124,0.62)';
+    ctx.fillStyle = 'rgba(20,52,68,0.7)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const p = { x: 0, y: 0 };
@@ -484,11 +491,11 @@ function drawCurrents(view, chart) {
     ctx.save();
     ctx.translate(c.x, c.y);
     ctx.rotate(c.rot);
-    ctx.fillStyle = 'rgba(78,110,124,0.06)';
+    ctx.fillStyle = 'rgba(20,52,68,0.1)';
     ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
     ctx.restore();
-    ctx.strokeStyle = 'rgba(78,110,124,0.85)';
-    ctx.fillStyle = 'rgba(78,110,124,0.85)';
+    ctx.strokeStyle = 'rgba(16,44,60,0.9)';
+    ctx.fillStyle = 'rgba(16,44,60,0.9)';
     ctx.lineWidth = 1.6 / z;
     for (const off of [-1, 1]) {
       const ox = c.x - uy * off * 14;

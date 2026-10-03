@@ -77,13 +77,18 @@ export function showHarbour(h) {
     ['Rules', h.settings.rules.startsWith('racing') ? 'Racing' : 'Casual', () => h.onSet('rules', flipRules(h.settings.rules, 'rules')), () => h.onSet('rules', flipRules(h.settings.rules, 'rules'))],
     ['Classes', h.settings.rules.endsWith('mixed') ? 'Mixed' : 'One design', () => h.onSet('rules', flipRules(h.settings.rules, 'class')), () => h.onSet('rules', flipRules(h.settings.rules, 'class'))],
   ];
-  for (const [label, value, prev, next] of rows) race.append(stepper(label, value, h.canEdit, prev, next));
+  if (h.canEdit) for (const [label, value, prev, next] of rows) race.append(stepper(label, value, true, prev, next));
+  else {
+    // Not the host's to change: a compact read-out, two to a line.
+    const grid = el('dl', 'facts');
+    for (const [label, value] of rows) grid.append(el('dt', '', label.toUpperCase()), el('dd', '', value));
+    race.append(grid);
+  }
   if (h.race) {
     const go = el('div', 'row');
     go.append(button('Race', h.race, 'primary big'));
     race.append(go);
   }
-  panel.append(race);
   // Your boat.
   const boat = el('div', 'block');
   const lvl = levelOf(h.profile.xp);
@@ -121,16 +126,15 @@ export function showHarbour(h) {
   const names = BOAT_NAMES.map((n, i) => i).filter((i) => nameOpen(h.profile, i));
   const ni = Math.max(0, names.indexOf(h.look.name));
   boat.append(stepper('Name', BOAT_NAMES[names[ni]] ?? BOAT_NAMES[0], names.length > 1, () => h.onLook({ name: names[(ni - 1 + names.length) % names.length] }), () => h.onLook({ name: names[(ni + 1) % names.length] })));
-  panel.append(boat);
-  // Sailing on your own.
-  const solo = el('div', 'block');
+  // Sailing on your own: first, because it is the part nobody finds by scrolling.
+  const solo = el('div', 'block solo');
   solo.append(el('div', 'block-title', 'ON YOUR OWN'));
   const row = el('div', 'row');
   row.append(button('Career', h.onCareer), button('Lesson', h.onTutorial));
   if (h.invite) row.append(button('Invite', h.invite));
   if (!h.onCareer) for (const b of row.querySelectorAll('button')) if (b.textContent !== 'Invite') b.disabled = true;
   solo.append(row);
-  panel.append(solo);
+  panel.append(solo, race, boat);
   if (h.notReady) panel.append(el('div', 'waiting', h.notReady));
   wrap.append(head, panel);
   root().replaceChildren(wrap);
@@ -204,6 +208,12 @@ export function showResults(r) {
   if (r.note) card.append(el('div', 'note', r.note));
   const foot = el('div', 'row');
   if (r.onContinue) foot.append(button(r.continueLabel ?? 'Harbour', r.onContinue, 'primary'));
+  else if (r.onBack) {
+    // A public server goes back to the harbour when everyone has tapped this (or the clock runs out).
+    const b = button(r.backDone ? 'Ready' : 'Harbour', r.onBack, 'primary');
+    b.disabled = !!r.backDone;
+    foot.append(b);
+  }
   if (r.onAgain) foot.append(button('Again', r.onAgain));
   if (r.countdown !== null && r.countdown !== undefined) foot.append(el('span', 'countdown', countdownText(r.countdown)));
   if (foot.childNodes.length) card.append(foot);

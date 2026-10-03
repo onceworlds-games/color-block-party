@@ -162,7 +162,7 @@ export function raceSetup(settings, seed, humans, looks = {}) {
     rules: trial ? 'casual' : rules,
     trial,
     mixed,
-    preStart: trial ? 30 : 60,
+    preStart: trial ? 30 : ids.length <= 1 ? 45 : 60, // a lone sailor with rival skippers needn't wait the full minute
     entries: [...entries, ...bots],
     humans: ids,
   };

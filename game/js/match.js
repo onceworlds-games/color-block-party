@@ -30,6 +30,7 @@ export function makeMatch() {
     gone: new Map(),
     doneSeen: false,
     endCalled: false,
+    back: false, // this page's player tapped Harbour on the results
   };
 }
 
@@ -45,6 +46,7 @@ export function dropMatch(m) {
   m.gone.clear();
   m.doneSeen = false;
   m.endCalled = false;
+  m.back = false;
 }
 
 /** The participants' looks, from their presence (defaults when there is none yet). */
@@ -211,7 +213,7 @@ export function tickMatch(m, room, input, look, frameDt, nowMs) {
   if (mine && nowMs - m.lastPres >= 50) {
     m.lastPres = nowMs;
     try {
-      room.setPresence(boatPresence(mine, mid, s.simT, look));
+      room.setPresence(boatPresence(mine, mid, s.simT, look, m.back));
     } catch {}
   }
   if (isHost) hostDuties(m, room, nowMs, target);
@@ -268,9 +270,31 @@ function hostDuties(m, room, nowMs, target) {
   }
   // After the results have been up long enough: back to the harbour (a private server's host continues by hand).
   if (done && !m.endCalled && endAt !== null) {
-    const wait = room.kind === 'private' ? RESULTS_PRIVATE_MS : RESULTS_PUBLIC_MS;
-    if (room.matchNow() - endAt > wait) endMatch(m, room);
+    const priv = room.kind === 'private';
+    const waited = room.matchNow() - endAt;
+    // A public server doesn't wait out the clock once every sailor has tapped Harbour.
+    if (waited > (priv ? RESULTS_PRIVATE_MS : RESULTS_PUBLIC_MS) || (!priv && waited > EARLY_END_MS && everyoneBack(m, room))) endMatch(m, room);
   }
+}
+
+const EARLY_END_MS = 2500;
+
+/** Is every sailor still here (people, not rival skippers) back on the harbour button? A page that is gone doesn't hold anyone up. */
+export function everyoneBack(m, room) {
+  let any = false;
+  for (const id of m.setup?.humans ?? []) {
+    if (id === m.meId) {
+      if (!m.back) return false;
+      any = true;
+      continue;
+    }
+    const pl = room.players.get(id);
+    if (!pl || pl.connected === false) continue;
+    const p = pl.presence;
+    if (!p || p.s !== 'r' || p.m !== mshort(m.mid) || p.rd !== 1) return false;
+    any = true;
+  }
+  return any || room.spectating === false;
 }
 
 export function endMatch(m, room) {

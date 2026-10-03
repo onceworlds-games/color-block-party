@@ -7,6 +7,7 @@ import { makeServer } from './fakeroom.mjs';
 import { makeMatch, buildMatch, tickMatch, onMatchState, dropMatch } from '../game/js/match.js';
 import { makeBrain } from '../game/js/sim/skippers.js';
 import { applyBoatPresence, readBots, readRecord, mshort } from '../game/js/net.js';
+import { raceSetup } from '../game/js/sim/setup.js';
 
 const LOOK = { livery: 1, pattern: 'plain', cls: 'dinghy', num: 7, name: 0 };
 
@@ -152,4 +153,25 @@ test('presence and snapshots from a lying page are checked before use', () => {
   const r = readRecord({ m: mshort(srv.match.id), fin: { x: -5, y: 'a', z: 40.5 }, done: 'yes' }, srv.match.id);
   assert.deepEqual(r.fin, { z: 40.5 });
   assert.equal(r.done, false);
+});
+
+test('a public server goes back to the harbour once every sailor has tapped Harbour, not before', () => {
+  const srv = makeServer({ seed: 5, settings: { course: 7, courseHi: 0, laps: 1, weather: 'fresh', fleet: 'humans', rules: 'casual' } });
+  const cs = ['ann', 'bo', 'cy'].map((id) => client(srv, id));
+  srv.start(1);
+  assert.ok(runUntil(srv, cs, () => cs.every((c) => c.m.record?.done), 12 * 60000), 'the race ended');
+  // Two have tapped; the third is still reading: the host waits.
+  cs[0].m.back = true;
+  cs[1].m.back = true;
+  assert.ok(!runUntil(srv, cs, () => srv.match.phase === 'lobby', 15000), 'one sailor still reading: no early end');
+  cs[2].m.back = true;
+  assert.ok(runUntil(srv, cs, () => srv.match.phase === 'lobby', 8000), 'all tapped: back in a few seconds');
+  for (const c of cs) assert.deepEqual(c.errors, []);
+});
+
+test('a lone sailor with rival skippers gets a shorter pre-start; two or more get the full minute', () => {
+  const one = raceSetup({ fleet: 'six' }, 9, ['ann'], {});
+  const two = raceSetup({ fleet: 'six' }, 9, ['ann', 'bo'], {});
+  assert.equal(one.preStart, 45);
+  assert.equal(two.preStart, 60);
 });

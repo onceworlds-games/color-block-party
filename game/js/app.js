@@ -566,6 +566,8 @@ function showMatchResults() {
     medal: r.applied?.medal ?? 0,
     note: r.applied?.pb ? 'New best' : '',
     onContinue: priv && room.isHost ? () => endMatch(m, room) : null,
+    onBack: !priv && m.meId ? () => ((m.back = true), (app.uiKey = ''), audio.cue('ui')) : null,
+    backDone: m.back,
     countdown: priv ? null : left,
   });
 }

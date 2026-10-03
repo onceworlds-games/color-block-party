@@ -34,9 +34,8 @@ function text(ctx, str, x, y, { font = `500 13px ${FONT_SERIF}`, color = PALETTE
 }
 
 /** The top-centre clock: the countdown before the gun, the race time after it, and the leg. */
-export function drawClock(view, h) {
+export function drawClock(view, h, cx = view.w / 2) {
   const ctx = view.ctx;
-  const cx = view.w / 2;
   if (h.pre) {
     const left = Math.max(0, h.gunIn);
     text(ctx, 'START IN', cx, 22, { font: `600 11px ${FONT_SERIF}`, align: 'center', spacing: '0.18em', color: PALETTE.inkSoft });
@@ -48,7 +47,7 @@ export function drawClock(view, h) {
 }
 
 /** One notice at a time, in italic, under the clock. */
-export function drawNotice(view, n, now) {
+export function drawNotice(view, n, now, y0 = 90) {
   if (!n) return;
   const ctx = view.ctx;
   const age = now - n.at;
@@ -57,18 +56,18 @@ export function drawNotice(view, n, now) {
   if (a <= 0) return;
   ctx.save();
   ctx.globalAlpha = a;
-  const y = 90 + (1 - Math.min(1, age / 0.25)) * -6;
-  const color = n.kind === 'bad' ? PALETTE.red : n.kind === 'good' ? '#2F6B4F' : PALETTE.ink;
-  text(ctx, n.text, view.w / 2, y, { font: `italic 600 ${view.w < 420 ? 17 : 20}px ${FONT_SERIF}`, align: 'center', color });
-  if (n.sub) text(ctx, n.sub, view.w / 2, y + 20, { font: `500 12px ${FONT_SERIF}`, align: 'center', color: PALETTE.inkSoft, spacing: '0.06em' });
+  const y = y0 + (1 - Math.min(1, age / 0.25)) * -6;
+  const color = n.kind === 'bad' ? PALETTE.red : n.kind === 'good' ? '#1F5A3F' : PALETTE.ink;
+  text(ctx, n.text, view.w / 2, y, { font: `italic 600 ${view.w < 420 ? 18 : 21}px ${FONT_SERIF}`, align: 'center', color });
+  if (n.sub) text(ctx, n.sub, view.w / 2, y + 20, { font: `500 12px ${FONT_SERIF}`, align: 'center', color: PALETTE.ink, spacing: '0.06em' });
   ctx.restore();
 }
 
 /** Standings at the top right: place, shape mark in its colour, name, gap. */
-export function drawStandings(view, rows, meId, compact) {
+export function drawStandings(view, rows, meId, compact, narrow = false) {
   const ctx = view.ctx;
-  const w = compact ? 150 : 196;
-  const x0 = view.w - w - 10;
+  const w = narrow ? 126 : compact ? 150 : 196;
+  const x0 = view.w - w - (narrow ? 6 : 10);
   let y = 16;
   const max = compact ? 5 : 10;
   let list = rows.slice(0, max);
@@ -95,7 +94,8 @@ export function drawStandings(view, rows, meId, compact) {
     ctx.lineWidth = 0.9;
     ctx.stroke();
     ctx.restore();
-    const name = r.name.length > (compact ? 9 : 14) ? `${r.name.slice(0, compact ? 8 : 13)}…` : r.name;
+    const cut = narrow ? 7 : compact ? 9 : 14;
+    const name = r.name.length > cut ? `${r.name.slice(0, cut - 1)}…` : r.name;
     text(ctx, name, x0 + 35, y, { font: `${me ? 700 : 500} 13px ${FONT_SERIF}`, color: r.away ? 'rgba(30,42,51,0.45)' : PALETTE.ink, halo: false });
     text(ctx, r.gap, x0 + w, y, { font: `500 12px ${FONT_MONO}`, align: 'right', color: r.gapColor ?? PALETTE.inkSoft, halo: false });
     if (me) {
