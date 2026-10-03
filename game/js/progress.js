@@ -177,7 +177,7 @@ export function raceReward({ place, fleet, cleanTacks = 0, steals = 0, perfectSt
  * Par times (s) per course in time-trial conditions (Classic, fixed wind): a Skipper's time, measured with
  * scripts/balance.mjs. Gold within par, silver within 6%, bronze within 14%.
  */
-export const PARS = { 1: 268, 2: 300, 3: 290, 4: 282, 5: 279, 6: 300, 7: 180, 8: 298, 9: 360, 10: 330, 11: 328, 12: 305 };
+export const PARS = { 1: 260, 2: 293, 3: 225, 4: 299, 5: 236, 6: 314, 7: 157, 8: 271, 9: 311, 10: 311, 11: 295, 12: 226 };
 
 export function medalFor(courseId, t) {
   const par = PARS[courseId];

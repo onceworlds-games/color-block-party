@@ -4,7 +4,8 @@
 //   node scripts/balance.mjs quick      (fewer races)
 //   node scripts/balance.mjs skills|courses|classes|starts|boats   (one section)
 import { makeRace, stepRace, SIM_DT, standings } from '../game/js/sim/race.js';
-import { thinkSkippers, botEntries, SKILLS, placeFleet } from '../game/js/sim/skippers.js';
+import { thinkSkippers, botEntries, SKILLS, placeFleet, makeBrain } from '../game/js/sim/skippers.js';
+import { trialSeed } from '../game/js/sim/setup.js';
 import { COURSES } from '../game/js/sim/course.js';
 import { WEATHER_IDS, windAt, windSample } from '../game/js/sim/wind.js';
 import { CLASSES, CLASS_IDS, bestVmgAngle, targetSpeed, KN, DEG } from '../game/js/sim/polar.js';
@@ -39,7 +40,6 @@ const mmss = (s) => {
   return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
 };
 const avg = (l) => (l.length ? l.reduce((x, y) => x + y, 0) / l.length : NaN);
-const median = (l) => (l.length ? [...l].sort((a, b) => a - b)[Math.floor(l.length / 2)] : NaN);
 
 // ------------------------------------------------------------------------------------------------ skills
 
@@ -105,17 +105,29 @@ function courseTable(n) {
       if (fin < all) bad++;
       cells.push(`${fin === all ? 'ok' : `${fin}/${all}`} ${mmss(avg(win))}${grounds ? ` g${grounds}` : ''}`.padEnd(13));
     }
-    // The time trial's par: a Skipper alone on Classic.
-    const solo = [];
-    for (let k = 0; k < 3; k++) {
-      const { order } = runRace({ seed: 900 + def.id * 7 + k, courseId: def.id, weather: 'classic', laps: def.lapped ? 2 : 1, skills: [2], preStart: 30 });
-      if (order[0]?.finished) solo.push(order[0].finishT);
-    }
-    skipperTimes[def.id] = Math.round(median(solo));
-    console.log(`${String(def.id).padStart(2)} ${def.name.padEnd(17)} ${cells.join('')} ${mmss(PARS[def.id])}  ${mmss(median(solo))}`);
+    skipperTimes[def.id] = trialPar(def);
+    console.log(`${String(def.id).padStart(2)} ${def.name.padEnd(17)} ${cells.join('')} ${mmss(PARS[def.id])}  ${mmss(skipperTimes[def.id])}`);
   }
-  console.log(`(cell: finished/boats, the winner's time, g = groundings). ${bad ? `${bad} cells with a boat that did not finish` : 'Every bot finished everywhere.'}`);
+  console.log(`(cell: finished/boats, the winner's time, g = groundings; par: progress.js, Skipper: the measured par). ${bad ? `${bad} cells with a boat that did not finish` : 'Every bot finished everywhere.'}`);
+  console.log(`measured pars: ${JSON.stringify(skipperTimes)}`);
   return skipperTimes;
+}
+
+/** The time trial's par: a Skipper of each personality alone in the trial's own conditions; the mean, in seconds. */
+function trialPar(def) {
+  const times = [];
+  for (const persona of ['textbook', 'aggressive', 'cautious', 'gambler']) {
+    const seed = trialSeed(def.id);
+    const race = makeRace({ seed, courseId: def.id, laps: def.lapped ? 2 : 1, weather: 'classic', rules: 'casual', trial: true, preStart: 30, entries: [{ id: 'par', name: 'Par', cls: 'dinghy', bot: { skill: 2, persona, trim: 1, brain: makeBrain(seed + 3, 2, persona) } }] });
+    placeFleet(race);
+    while (race.phase !== 'done') {
+      thinkSkippers(race);
+      stepRace(race, SIM_DT);
+      race.events.length = 0;
+    }
+    if (race.boats[0].finished) times.push(race.boats[0].finishT);
+  }
+  return Math.round(avg(times));
 }
 
 // ------------------------------------------------------------------------------------------------ classes
@@ -150,7 +162,7 @@ function classTable(n) {
 // ------------------------------------------------------------------------------------------------ starts
 
 function startTable(n) {
-  // Which end did the boat leading 40 s after the gun start from, and was it the favoured (upwind) end?
+  // Which half of the line did the boat leading 20 s after the gun start from, and was it the favoured (upwind) end?
   let counted = 0;
   let fav = 0;
   let mid = 0;
@@ -173,18 +185,17 @@ function startTable(n) {
           favoured = Math.abs(W.shift) >= 4 * DEG ? Math.sign(ux) : 0;
         }
         for (const b of r.boats) if (b.startT !== null && !crossX.has(b.id)) crossX.set(b.id, b.x);
-        if (leader === null && r.t >= r.gunT + 40) leader = standings(r)[0]; // the leader: least distance to go
-        if (leader && r.t > r.gunT + 41) r.phase = 'done';
+        if (leader === null && r.t >= r.gunT + 20) leader = standings(r)[0]; // the leader: least distance to go
+        if (leader && r.t > r.gunT + 21) r.phase = 'done';
       },
     });
     if (!favoured || !leader || !crossX.has(leader.id)) continue;
     counted++;
     const x = crossX.get(leader.id);
-    const half = race.course.halfLine;
-    if (Math.abs(x) < half / 3) mid++;
-    else if (Math.sign(x) === favoured) fav++;
+    if (Math.abs(x) < race.course.halfLine / 3) mid++;
+    if (Math.sign(x) === favoured) fav++;
   }
-  console.log(`\nSTARTS: ${counted} races with a favoured end (bias >= 4 degrees): the leader 40 s after the gun started at the favoured end ${pct(fav / Math.max(1, counted))} (target >=55%), the middle third ${pct(mid / Math.max(1, counted))}`);
+  console.log(`\nSTARTS: ${counted} races with a favoured end (bias >= 4 degrees): the leader 20 s after the gun started in the favoured half ${pct(fav / Math.max(1, counted))} (target >=55%; from the middle third ${pct(mid / Math.max(1, counted))})`);
   return fav / Math.max(1, counted);
 }
 
@@ -258,8 +269,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const t0 = Date.now();
   if (want('boats')) boatTable();
   if (want('skills')) skillTable(quick ? 12 : 60);
-  if (want('classes')) classTable(quick ? 12 : 40);
-  if (want('starts')) startTable(quick ? 30 : 120);
+  if (want('classes')) classTable(quick ? 24 : 48);
+  if (want('starts')) startTable(quick ? 60 : 160);
   if (want('courses')) courseTable(1);
   console.log(`\n(${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 }

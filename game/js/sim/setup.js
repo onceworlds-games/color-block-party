@@ -148,7 +148,7 @@ export function raceSetup(settings, seed, humans, looks = {}) {
     seed: trial ? trialSeed(courseId) : seed >>> 0,
     courseId,
     courseName: def?.name ?? '',
-    laps: def?.lapped ? st.laps : 1,
+    laps: def?.lapped ? (trial ? 2 : st.laps) : 1, // a time trial is always two laps, so the boards compare
     weather,
     rules: trial ? 'casual' : rules,
     trial,

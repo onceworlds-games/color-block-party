@@ -68,19 +68,19 @@ export { smooth as smoothstep };
 export const CLASSES = {
   dinghy: {
     id: 'dinghy', name: 'Dinghy', nogo: 28, downStretch: 1, windExp: 1, tauUp: 2.0, tauDown: 3.5, turn: 1,
-    tack: [0.25, 0.45], gybe: [0.12, 0.3], overpower: 0.1, plane: 0, planeFrom: 13, reach: 0, factor: 1,
+    tack: [0.25, 0.45], gybe: [0.12, 0.3], overpower: 0.1, plane: 0, planeFrom: 13, reach: 0, factor: 0.97,
   },
   skiff: {
-    id: 'skiff', name: 'Skiff', nogo: 31, downStretch: 1, windExp: 1.12, tauUp: 1.6, tauDown: 3.0, turn: 1.25,
-    tack: [0.3, 0.5], gybe: [0.15, 0.35], overpower: 0.15, plane: 0.08, planeFrom: 13, reach: 0, factor: 1,
+    id: 'skiff', name: 'Skiff', nogo: 31, downStretch: 1, windExp: 1.08, tauUp: 1.6, tauDown: 3.0, turn: 1.25,
+    tack: [0.3, 0.5], gybe: [0.15, 0.35], overpower: 0.15, plane: 0.05, planeFrom: 13, reach: 0, factor: 0.98,
   },
   catboat: {
-    id: 'catboat', name: 'Catboat', nogo: 26, downStretch: 1, windExp: 0.9, tauUp: 3.2, tauDown: 5.0, turn: 0.8,
-    tack: [0.2, 0.4], gybe: [0.1, 0.25], overpower: 0.06, plane: 0, planeFrom: 13, reach: 0, factor: 0.97,
+    id: 'catboat', name: 'Catboat', nogo: 27, downStretch: 1, windExp: 0.9, tauUp: 3.2, tauDown: 5.0, turn: 0.8,
+    tack: [0.2, 0.4], gybe: [0.1, 0.25], overpower: 0.06, plane: 0, planeFrom: 13, reach: 0, factor: 0.95,
   },
   cat: {
     id: 'cat', name: 'Catamaran', nogo: 34, downStretch: 1.25, windExp: 1.04, tauUp: 1.8, tauDown: 3.0, turn: 0.75,
-    tack: [0.5, 0.65], gybe: [0.2, 0.4], overpower: 0.08, plane: 0, planeFrom: 13, reach: 0.18, factor: 1,
+    tack: [0.5, 0.65], gybe: [0.2, 0.4], overpower: 0.08, plane: 0, planeFrom: 13, reach: 0.32, factor: 1,
   },
 };
 export const CLASS_IDS = ['dinghy', 'skiff', 'catboat', 'cat'];

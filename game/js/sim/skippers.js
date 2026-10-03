@@ -10,10 +10,10 @@ import { inPolygon, inShoal, nearestOnPolygon } from './course.js';
 import { windAt } from './wind.js';
 
 export const SKILLS = [
-  { id: 0, name: 'Deckhand', reaction: 0.5, noise: 4, look: 2, header: 12, confirm: 2, minLeg: 5, layErr: 14, startLate: 2.6, startErr: 1.6, angErr: 7, angBias: 4, trim: 0.8, respect: 0.7, hike: 0.3, clean: 0.3 },
-  { id: 1, name: 'Mate', reaction: 0.35, noise: 3, look: 4, header: 8, confirm: 1.2, minLeg: 7, layErr: 8, startLate: 1.7, startErr: 0.9, angErr: 3.5, angBias: 2, trim: 0.91, respect: 0.88, hike: 0.6, clean: 0.65 },
+  { id: 0, name: 'Deckhand', reaction: 0.5, noise: 4, look: 2, header: 12, confirm: 2, minLeg: 5, layErr: 14, startLate: 2.6, startErr: 1.6, angErr: 7, angBias: 4, trim: 0.75, respect: 0.7, hike: 0.3, clean: 0.3 },
+  { id: 1, name: 'Mate', reaction: 0.35, noise: 3, look: 4, header: 8, confirm: 1.2, minLeg: 7, layErr: 8, startLate: 1.7, startErr: 0.9, angErr: 3.5, angBias: 2, trim: 0.885, respect: 0.88, hike: 0.6, clean: 0.65 },
   { id: 2, name: 'Skipper', reaction: 0.2, noise: 2, look: 7, header: 6, confirm: 0.8, minLeg: 8, layErr: 3.5, startLate: 1.0, startErr: 0.4, angErr: 1.5, angBias: 0.6, trim: 1, respect: 0.97, hike: 0.85, clean: 0.9 },
-  { id: 3, name: 'Legend', reaction: 0.1, noise: 1, look: 10, header: 5, confirm: 0.5, minLeg: 8, layErr: 1.5, startLate: 0.65, startErr: 0.18, angErr: 0.5, angBias: 0, trim: 1, respect: 1, hike: 1, clean: 1 },
+  { id: 3, name: 'Legend', reaction: 0.1, noise: 1, look: 10, header: 5, confirm: 0.5, minLeg: 8, layErr: 1.5, startLate: 0.65, startErr: 0.18, angErr: 0.5, angBias: 0, trim: 1.006, respect: 1, hike: 1, clean: 1 },
 ];
 
 export const PERSONAS = {
@@ -253,7 +253,7 @@ export function timeToLine(b, h, best) {
   const L = Math.max(0, b.y / -sy - 2.2); // the bow is 2.2 m ahead of the centre
   const cls = CLASSES[b.cls];
   const twa = Math.abs(angDiff(Math.atan2(-b.wy, -b.wx), h)) / DEG;
-  const T = Math.max(0.5, targetSpeed(cls, Math.max(twa, cls.nogo + 1), b.wkn || 10, false));
+  const T = Math.max(0.5, targetSpeed(cls, Math.max(twa, cls.nogo + 1), b.wkn || 10, false) * (b.trim ?? 1));
   const turnDeg = Math.abs(angDiff(b.h, h)) / DEG;
   // A run on the other tack needs a tack first (unless the boat is head to wind and can just fall off).
   const hSide = -Math.sign(angDiff(Math.atan2(-b.wy, -b.wx), h)) || 1;
@@ -564,11 +564,37 @@ function doTack(b, br, t, wind, angle, force = false) {
 function obstaclesOf(race) {
   if (race._obst) return race._obst;
   const c = race.course;
-  race._obst = [
-    ...c.islands.map((il) => ({ x: il.x, y: il.y, r: il.rr + 6 })),
-    ...c.shoals.map((sh) => ({ x: sh.x, y: sh.y, r: Math.max(sh.rx, sh.ry) + 5 })),
-  ];
+  race._obst = [...c.islands.flatMap(islandCircles), ...c.shoals.map((sh) => ({ x: sh.x, y: sh.y, r: Math.max(sh.rx, sh.ry) + 5 }))];
   return race._obst;
+}
+
+/**
+ * An island as circles for routing: one round a roundish island; a chain along a long one's axis (one big circle
+ * would swallow the water beside it), each just covering its stretch of the coastline, with room to spare.
+ */
+function islandCircles(il) {
+  const big = Math.max(il.sx, il.sy);
+  const small = Math.min(il.sx, il.sy);
+  if (big / small < 1.4) return [{ x: il.x, y: il.y, r: il.rr + 6 }];
+  const ux = il.sx >= il.sy ? Math.cos(il.rot) : -Math.sin(il.rot);
+  const uy = il.sx >= il.sy ? Math.sin(il.rot) : Math.cos(il.rot);
+  const pts = il.poly.map(([x, y]) => {
+    const dx = x - il.x;
+    const dy = y - il.y;
+    return { t: dx * ux + dy * uy, l: Math.abs(dx * uy - dy * ux) };
+  });
+  const t0 = Math.min(...pts.map((p) => p.t));
+  const t1 = Math.max(...pts.map((p) => p.t));
+  const n = Math.max(2, Math.ceil((t1 - t0) / (il.r * small * 1.6)));
+  const step = (t1 - t0) / n;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const c = t0 + step * (i + 0.5);
+    let r = step / 2;
+    for (const p of pts) if (Math.abs(p.t - c) <= step / 2 + 1e-6) r = Math.max(r, Math.hypot(p.t - c, p.l));
+    out.push({ x: il.x + ux * c, y: il.y + uy * c, r: r + 6 });
+  }
+  return out;
 }
 
 /** Does the segment a -> b pass through a circle? */
