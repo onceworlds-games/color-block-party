@@ -1,7 +1,7 @@
 // Tack: the frame loop and which screen is up. The room is joined before this module loads (see main.js).
 
 import { platform } from './platform.js';
-import { JOIN, mshort } from './net.js';
+import { JOIN, mshort, encodeLook } from './net.js';
 
 /** Starts the game; `joining` is the room join already under way. */
 export async function start(joining) {
@@ -351,7 +351,7 @@ function presence(kind) {
   const s = app.solo ? 'l' : room.match?.phase === 'playing' ? 'w' : 'h';
   const lk = look();
   try {
-    room.setPresence({ s, lk: [lk.livery, 0, ['dinghy', 'skiff', 'catboat', 'cat'].indexOf(lk.cls), 7, lk.name] });
+    room.setPresence({ s, lk: encodeLook(lk) });
   } catch {}
 }
 
@@ -520,7 +520,8 @@ function showHarbour() {
       markDirty();
       app.lastPresence = 0;
       app.uiKey = '';
-      audio.cue('ui');
+      audio.setHorn(app.profile.look.horn);
+      audio.cue(patch.horn ? 'myHorn' : 'ui');
     },
     onCareer: starting ? null : () => ((app.career = true), (app.uiKey = ''), audio.cue('ui')),
     onTutorial: starting ? null : startLesson,
@@ -670,6 +671,7 @@ async function fontsReady(ms = 1500) {
 
 const [room, saved] = await Promise.all([joining, platform.load(PROFILE_KEY).catch(() => null), fontsReady()]);
 app.profile = parseProfile(saved);
+audio.setHorn(app.profile.look.horn);
 app.checkpoint = await platform.load('cp').catch(() => null);
 if (room) hookRoom(room);
 requestAnimationFrame((t) => {

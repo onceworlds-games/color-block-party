@@ -130,7 +130,7 @@ export function raceSetup(settings, seed, humans, looks = {}) {
     while (used.has(livery)) livery = (livery + 1) % 10;
     used.add(livery);
     const cls = mixed && CLASS_IDS.includes(lk.cls) ? lk.cls : 'dinghy';
-    return { id, name: String(lk.name ?? '').slice(0, 24) || 'Sailor', cls, livery, pattern: lk.pattern ?? 'plain', num: lk.num ?? i + 1 };
+    return { id, name: String(lk.name ?? '').slice(0, 24) || 'Sailor', cls, livery, pattern: lk.pattern ?? 'plain', num: lk.num ?? i + 1, flag: lk.flag ?? 'none', wake: lk.wake ?? 'foam' };
   });
   const skills = fillSkills(nBots, seed);
   const r = rng(hash32(seed >>> 0, 17));
@@ -142,6 +142,10 @@ export function raceSetup(settings, seed, humans, looks = {}) {
     b.livery = livery;
     b.num = 20 + Number(b.id.replace('bot', ''));
     b.pattern = 'plain';
+    // Some rival skippers fly a burgee.
+    const fr = r.next();
+    b.flag = fr < 0.55 ? 'none' : ['pennant', 'swallow', 'chequer', 'cross'][Math.floor((fr - 0.55) / 0.1125) % 4];
+    b.wake = 'foam';
   }
   const def = COURSES.find((c) => c.id === courseId);
   return {

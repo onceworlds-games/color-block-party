@@ -43,6 +43,8 @@ export function decorate(s) {
     const look = s.looks[b.id] ?? {};
     b.livery = look.livery ?? n % 10;
     b.pattern = look.pattern ?? 'plain';
+    b.flag = look.flag ?? 'none';
+    b.wake = look.wake ?? 'foam';
     b.num = look.num ?? n + 1;
     if (look.name) b.name = look.name;
     b.drawX = b.x;

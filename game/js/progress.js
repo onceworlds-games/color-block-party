@@ -15,6 +15,32 @@ export const PATTERNS = [
   { id: 'star', name: 'Star', level: 18 },
 ];
 
+/** Masthead burgees: a shape and two colours (index into the chart palette), opened by level. */
+export const FLAGS = [
+  { id: 'none', name: 'None', level: 1 },
+  { id: 'pennant', name: 'Pennant', level: 3, shape: 'pennant', c: ['#C2412F', '#C2412F'] },
+  { id: 'swallow', name: 'Swallowtail', level: 5, shape: 'swallow', c: ['#2F55A4', '#EFE6D2'] },
+  { id: 'chequer', name: 'Chequer', level: 9, shape: 'square', c: ['#1E2A33', '#EFE6D2'] },
+  { id: 'cross', name: 'Saltire', level: 13, shape: 'saltire', c: ['#EFE6D2', '#2F55A4'] },
+  { id: 'gold', name: 'Gold', level: 17, shape: 'swallow', c: ['#D7A332', '#1E2A33'] },
+];
+
+/** Wake styles, opened by level. */
+export const WAKES = [
+  { id: 'foam', name: 'Foam', level: 1 },
+  { id: 'ribbon', name: 'Ribbon', level: 4 },
+  { id: 'pearls', name: 'Pearls', level: 8 },
+  { id: 'twin', name: 'Twin', level: 12 },
+];
+
+/** Your horn at the finish (and in the harbour when you pick it), opened by level. */
+export const HORNS = [
+  { id: 'brass', name: 'Brass', level: 1 },
+  { id: 'fog', name: 'Foghorn', level: 6 },
+  { id: 'whistle', name: 'Whistle', level: 10 },
+  { id: 'conch', name: 'Conch', level: 15 },
+];
+
 /** Liveries open by level: four to start, the rest one a level. */
 export const LIVERY_LEVELS = [1, 1, 1, 1, 2, 3, 4, 5, 6, 7];
 
@@ -55,7 +81,7 @@ export function newProfile() {
     wins: 0,
     points: 0,
     tutorial: false,
-    look: { livery: 0, pattern: 'plain', cls: 'dinghy', name: 0 },
+    look: { livery: 0, pattern: 'plain', cls: 'dinghy', name: 0, flag: 'none', wake: 'foam', horn: 'brass' },
     medals: {},
     best: {},
     weathers: {},
@@ -93,6 +119,9 @@ export function parseProfile(raw) {
   p.look.pattern = PATTERNS.some((x) => x.id === lk.pattern) ? lk.pattern : 'plain';
   p.look.cls = ['dinghy', 'skiff', 'catboat', 'cat'].includes(lk.cls) ? lk.cls : 'dinghy';
   p.look.name = Math.floor(num(lk.name, 0, BOAT_NAMES.length - 1));
+  p.look.flag = FLAGS.some((x) => x.id === lk.flag) ? lk.flag : 'none';
+  p.look.wake = WAKES.some((x) => x.id === lk.wake) ? lk.wake : 'foam';
+  p.look.horn = HORNS.some((x) => x.id === lk.horn) ? lk.horn : 'brass';
   for (const [k, v] of Object.entries(obj(r.medals))) if (/^\d{1,2}$/.test(k)) p.medals[k] = Math.floor(num(v, 0, 3));
   for (const [k, v] of Object.entries(obj(r.best))) if (/^\d{1,2}$/.test(k) && num(v, 1, 36000, 0) > 0) p.best[k] = num(v, 1, 36000);
   for (const k of ['light', 'moderate', 'fresh', 'shifty', 'squall', 'fog']) if (obj(r.weathers)[k] === true) p.weathers[k] = true;
@@ -136,6 +165,12 @@ export function levelProgress(xp) {
 
 export function liveryOpen(p, i) {
   return levelOf(p.xp) >= (LIVERY_LEVELS[i] ?? 99);
+}
+
+/** Is a flag, wake style or horn from one of the lists above open at this profile's level? */
+export function cosmeticOpen(p, list, id) {
+  const it = list.find((x) => x.id === id);
+  return !!it && levelOf(p.xp) >= it.level;
 }
 
 export function patternOpen(p, id) {

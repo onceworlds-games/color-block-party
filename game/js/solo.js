@@ -28,7 +28,7 @@ export function careerSession(profile, look, cup, race) {
 /** A race with no room (the game opened on its own): the harbour's settings against rival skippers. */
 export function quickSession(settings, look, seed) {
   const setup = raceSetup(settings, seed, ['me'], { me: { ...look, name: 'You' } });
-  const s = makeSession({ ...setup, meId: 'me', kind: setup.trial ? 'trial' : 'race', looks: Object.fromEntries(setup.entries.map((e) => [e.id, { livery: e.livery, pattern: e.pattern, num: e.num, name: e.name }])) });
+  const s = makeSession({ ...setup, meId: 'me', kind: setup.trial ? 'trial' : 'race', looks: Object.fromEntries(setup.entries.map((e) => [e.id, { livery: e.livery, pattern: e.pattern, num: e.num, name: e.name, flag: e.flag, wake: e.wake }])) });
   return wrap(s, { kind: 'quick', setup });
 }
 
@@ -36,7 +36,7 @@ function looksFor(entries, look) {
   const out = {};
   let next = 0;
   entries.forEach((e, i) => {
-    if (e.id === 'me') out.me = { livery: look.livery, pattern: look.pattern, num: 7, name: 'You' };
+    if (e.id === 'me') out.me = { livery: look.livery, pattern: look.pattern, num: 7, name: 'You', flag: look.flag, wake: look.wake };
     else {
       if (next === look.livery) next++;
       out[e.id] = { livery: next % 10, num: 20 + i, name: e.name };

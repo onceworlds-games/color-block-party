@@ -2,7 +2,7 @@
 // room-closed card. Built from elements and textContent only (names come from other players).
 
 import { LIVERIES } from './render/view.js';
-import { PATTERNS, BOAT_NAMES, levelOf, levelProgress, liveryOpen, patternOpen, classOpen, nameOpen, PARS } from './progress.js';
+import { PATTERNS, BOAT_NAMES, FLAGS, WAKES, HORNS, cosmeticOpen, levelOf, levelProgress, liveryOpen, patternOpen, classOpen, nameOpen, PARS } from './progress.js';
 import { SETTINGS, courseIndex, WEATHER_NAMES } from './sim/setup.js';
 import { COURSES } from './sim/course.js';
 import { CLASSES } from './sim/polar.js';
@@ -111,6 +111,13 @@ export function showHarbour(h) {
     const classes = ['dinghy', 'skiff', 'catboat', 'cat'].filter((c) => classOpen(h.profile, c));
     const k = Math.max(0, classes.indexOf(h.look.cls));
     boat.append(stepper('Class', CLASSES[classes[k]]?.name ?? 'Dinghy', classes.length > 1, () => h.onLook({ cls: classes[(k - 1 + classes.length) % classes.length] }), () => h.onLook({ cls: classes[(k + 1) % classes.length] })));
+  }
+  // Burgee, wake and horn: whatever the level has opened (one stepper each, shown once there is a choice).
+  for (const [label, list, key] of [['Flag', FLAGS, 'flag'], ['Wake', WAKES, 'wake'], ['Horn', HORNS, 'horn']]) {
+    const open = list.filter((x) => cosmeticOpen(h.profile, list, x.id));
+    if (open.length < 2) continue;
+    const k = Math.max(0, open.findIndex((x) => x.id === h.look[key]));
+    boat.append(stepper(label, open[k].name, true, () => h.onLook({ [key]: open[(k - 1 + open.length) % open.length].id }), () => h.onLook({ [key]: open[(k + 1) % open.length].id })));
   }
   const names = BOAT_NAMES.map((n, i) => i).filter((i) => nameOpen(h.profile, i));
   const ni = Math.max(0, names.indexOf(h.look.name));

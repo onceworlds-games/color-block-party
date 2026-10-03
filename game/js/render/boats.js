@@ -3,6 +3,7 @@
 
 import { PALETTE, LIVERIES, FONT_SERIF, FONT_MONO } from './view.js';
 import { SHADOW } from '../sim/shadow.js';
+import { FLAGS } from '../progress.js';
 
 const DEG = Math.PI / 180;
 
@@ -44,17 +45,28 @@ export function drawWakes(view, wakes, boats, t, reduced) {
       const age = t - p.t;
       if (age > life || age < 0) break;
       const f = 1 - age / life;
-      const spread = 0.3 + age * (0.3 + p.v * 0.16);
+      const spread = b.wake === 'twin' ? 0.45 + age * 0.12 : 0.3 + age * (0.3 + p.v * 0.16);
       const nx = Math.cos(p.h + Math.PI / 2);
       const ny = Math.sin(p.h + Math.PI / 2);
       const xs = [p.x + nx * spread, p.x - nx * spread, p.x];
       const ys = [p.y + ny * spread, p.y - ny * spread, p.y];
       for (let k = 0; k < 3; k++) {
         const centre = k === 2;
-        const a = (centre ? 0.22 : 0.62) * f * f * (b.alpha ?? 1) * Math.min(1, p.v / 1.5);
+        // Styles (cosmetic): foam, a bright centre ribbon, pearls of foam, or twin narrow arms.
+        const st = b.wake ?? 'foam';
+        const base = st === 'ribbon' ? (centre ? 0.5 : 0.3) : st === 'twin' ? (centre ? 0 : 0.7) : centre ? 0.22 : 0.62;
+        const a = base * f * f * (b.alpha ?? 1) * Math.min(1, p.v / 1.5);
         if (a < 0.02) continue;
+        if (st === 'pearls') {
+          if (i % 2) continue;
+          ctx.fillStyle = `rgba(251,248,240,${Math.min(0.9, a * 1.3).toFixed(3)})`;
+          ctx.beginPath();
+          ctx.arc(xs[k], ys[k], Math.max(0.6 / z, (centre ? 0.22 : 0.16) * (0.5 + 0.5 * f)), 0, Math.PI * 2);
+          ctx.fill();
+          continue;
+        }
         ctx.strokeStyle = `rgba(251,248,240,${a.toFixed(3)})`;
-        ctx.lineWidth = Math.max(0.8 / z, (centre ? 0.9 : 0.32) * (0.4 + 0.6 * f));
+        ctx.lineWidth = Math.max(0.8 / z, (centre ? (st === 'ribbon' ? 1.2 : 0.9) : st === 'twin' ? 0.22 : 0.32) * (0.4 + 0.6 * f));
         ctx.beginPath();
         ctx.moveTo(px[k], py[k]);
         ctx.lineTo(xs[k], ys[k]);
@@ -64,6 +76,51 @@ export function drawWakes(view, wakes, boats, t, reduced) {
       py = ys;
     }
   }
+}
+
+/** The owner's burgee at the masthead, streaming downwind with a little flutter (cosmetic). */
+function drawBurgee(ctx, b, x, y, z, t) {
+  const f = FLAGS.find((q) => q.id === b.flag);
+  if (!f || !f.shape) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(-b.drawH + Math.PI / 2 + Math.sin(t * 9 + b.drawX) * 0.12);
+  ctx.beginPath();
+  if (f.shape === 'pennant') {
+    ctx.moveTo(0, -0.4);
+    ctx.lineTo(1.6, 0);
+    ctx.lineTo(0, 0.4);
+  } else if (f.shape === 'swallow') {
+    ctx.moveTo(0, -0.45);
+    ctx.lineTo(1.5, -0.45);
+    ctx.lineTo(1.05, 0);
+    ctx.lineTo(1.5, 0.45);
+    ctx.lineTo(0, 0.45);
+  } else ctx.rect(0, -0.5, 1.3, 1);
+  ctx.closePath();
+  ctx.fillStyle = f.c[0];
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = f.c[1];
+  ctx.strokeStyle = f.c[1];
+  if (f.shape === 'square') {
+    ctx.fillRect(0, -0.5, 0.65, 0.5);
+    ctx.fillRect(0.65, 0, 0.65, 0.5);
+  } else if (f.shape === 'saltire') {
+    ctx.lineWidth = 0.22;
+    ctx.beginPath();
+    ctx.moveTo(0, -0.5);
+    ctx.lineTo(1.3, 0.5);
+    ctx.moveTo(0, 0.5);
+    ctx.lineTo(1.3, -0.5);
+    ctx.stroke();
+  } else if (f.c[1] !== f.c[0]) ctx.fillRect(0, -0.12, 1.6, 0.24);
+  ctx.restore();
+  ctx.strokeStyle = PALETTE.ink;
+  ctx.lineWidth = 0.6 / z;
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** A monohull's outline in boat coordinates (x forward, y to starboard), metres: fine bow, full quarters, a transom. */
@@ -429,7 +486,7 @@ export function drawBoat(view, b, t) {
       ctx.stroke();
     }
     ctx.restore();
-  }
+  } else if (b.flag && b.flag !== 'none' && z > 3) drawBurgee(ctx, b, head ? head.hx : mastX, head ? head.hy : 0, z, t);
   // Sail number, in the middle of the main, when there is room to read it.
   if (z > 9 && b.num !== undefined && head && luff < 0.5) {
     ctx.save();

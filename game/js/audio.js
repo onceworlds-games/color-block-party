@@ -195,6 +195,37 @@ function horn(at, long) {
   }
 }
 
+/** The player's own horn (cosmetic): brass, a foghorn, a whistle or a conch. */
+let myHornId = 'brass';
+export function setHorn(id) {
+  myHornId = id;
+}
+function myHorn(at) {
+  if (myHornId === 'fog') {
+    const g = voice(at, 0.24, 0.12, 1.3, 0.5);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 480;
+    f.connect(g);
+    for (const hz of [61.7, 92.5, 123.5]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(hz * 1.04, at);
+      o.frequency.exponentialRampToValueAtTime(hz, at + 0.3);
+      o.connect(f);
+      o.start(at);
+      o.stop(at + 2.1);
+    }
+  } else if (myHornId === 'whistle') {
+    tone(at, 'sine', 1320, 0.22, 0.09, 1480);
+    tone(at + 0.26, 'sine', 1480, 0.6, 0.1, 1400);
+  } else if (myHornId === 'conch') {
+    tone(at, 'triangle', 196, 1.1, 0.16, 207.7, 900);
+    tone(at, 'sine', 392, 1.1, 0.05, 415.3);
+    noiseBurst(at, 1.1, 'bandpass', 700, 2, 0.05);
+  } else horn(at, true);
+}
+
 /** A bell buoy: inharmonic partials, long decays. */
 function bell(at) {
   const f0 = rnd(600, 700);
@@ -330,8 +361,11 @@ export function cue(name) {
         tone(t + 0.16, 'triangle', 247, 0.24, 0.08, 196);
         break;
       case 'finish':
-        horn(t, true);
+        myHorn(t);
         bell(t + 0.3);
+        break;
+      case 'myHorn':
+        myHorn(t);
         break;
       case 'finishOther':
         horn(t, false);

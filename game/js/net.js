@@ -2,7 +2,7 @@
 // number from another page goes through before it is used (anyone can send anything).
 
 import { SETTINGS } from './sim/setup.js';
-import { PATTERNS } from './progress.js';
+import { PATTERNS, FLAGS, WAKES } from './progress.js';
 import { CLASS_IDS } from './sim/polar.js';
 
 export const JOIN = { mode: 'regatta', maxPlayers: 10, minPlayers: 1, lobby: 'bar', settings: SETTINGS };
@@ -15,9 +15,17 @@ const r3 = (v) => Math.round(v * 1000) / 1000;
 /** A short, stable id for a match in presence and state. */
 export const mshort = (mid) => String(mid ?? '').slice(-12);
 
-/** The player's look as it travels: [livery, pattern, class, number, boat name index]. */
+/** The player's look as it travels: [livery, pattern, class, number, boat name index, flag, wake style]. */
 export function encodeLook(look) {
-  return [look.livery | 0, Math.max(0, PATTERNS.findIndex((p) => p.id === look.pattern)), Math.max(0, CLASS_IDS.indexOf(look.cls)), look.num | 0, look.name | 0];
+  return [
+    look.livery | 0,
+    Math.max(0, PATTERNS.findIndex((p) => p.id === look.pattern)),
+    Math.max(0, CLASS_IDS.indexOf(look.cls)),
+    look.num | 0,
+    look.name | 0,
+    Math.max(0, FLAGS.findIndex((f) => f.id === look.flag)),
+    Math.max(0, WAKES.findIndex((w) => w.id === look.wake)),
+  ];
 }
 
 export function decodeLook(a) {
@@ -28,6 +36,8 @@ export function decodeLook(a) {
     cls: CLASS_IDS[Math.floor(fin(a[2], 0, CLASS_IDS.length - 1))] ?? 'dinghy',
     num: Math.floor(fin(a[3], 0, 99)),
     name: Math.floor(fin(a[4], 0, 40)),
+    flag: FLAGS[Math.floor(fin(a[5], 0, FLAGS.length - 1))]?.id ?? 'none',
+    wake: WAKES[Math.floor(fin(a[6], 0, WAKES.length - 1))]?.id ?? 'foam',
   };
 }
 

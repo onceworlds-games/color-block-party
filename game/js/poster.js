@@ -108,7 +108,7 @@ const SCENES = {
         return { x: W.x + 15, y: W.y + 31, zoom: 8 };
       },
     }),
-  // The liveries: a parade of sails, every colour and its mark.
+  // The liveries, burgees and wake styles side by side (not store art).
   parade: (view) => parade(view),
   // A test sheet: every class at every point of sail (not store art).
   boats: (view) => sheet(view),
@@ -147,7 +147,7 @@ function parade(view) {
     const col = i % 5;
     const x = -136 + col * 18 + row * 9;
     const y = -60 + row * 16 + col * 3.5;
-    boats.push({ id: `p${i}`, drawX: x, drawY: y, drawH: -8 * DEG, x, y, h: -8 * DEG, v: 4.2, twa: 82 + (i % 3) * 4, side: -1, luff: 0, hiking: i % 3 === 0, heel: 0.4, cls: ['dinghy', 'skiff', 'dinghy', 'catboat', 'dinghy', 'cat', 'dinghy', 'skiff', 'dinghy', 'dinghy'][i], livery: i, pattern: pats[i], num: 7 + i * 4, alpha: 1 });
+    boats.push({ id: `p${i}`, drawX: x, drawY: y, drawH: -8 * DEG, x, y, h: -8 * DEG, v: 4.2, twa: 82 + (i % 3) * 4, side: -1, luff: 0, hiking: i % 3 === 0, heel: 0.4, cls: ['dinghy', 'skiff', 'dinghy', 'catboat', 'dinghy', 'cat', 'dinghy', 'skiff', 'dinghy', 'dinghy'][i], livery: i, pattern: pats[i], num: 7 + i * 4, alpha: 1, flag: ['none', 'pennant', 'swallow', 'chequer', 'cross', 'gold'][i % 6], wake: ['foam', 'ribbon', 'pearls', 'twin'][i % 4] });
   }
   // Wakes from a short run-up.
   for (let k = 30; k >= 0; k--) {

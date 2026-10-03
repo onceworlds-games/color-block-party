@@ -68,7 +68,7 @@ export function buildMatch(m, room, { names, checkpoint }) {
   const isHost = room.isHost;
   const local = [...(meId ? [meId] : []), ...(isHost ? botIds : [])];
   const looks = {};
-  for (const e of setup.entries) looks[e.id] = { livery: e.livery, pattern: e.pattern, num: e.num, name: e.name };
+  for (const e of setup.entries) looks[e.id] = { livery: e.livery, pattern: e.pattern, num: e.num, name: e.name, flag: e.flag, wake: e.wake };
   const session = makeSession({ ...setup, entries: setup.entries, meId, local, looks, kind: setup.trial ? 'trial' : 'race' });
   dropMatch(m);
   m.mid = match.id;
