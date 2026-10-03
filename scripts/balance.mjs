@@ -23,6 +23,7 @@ export function runRace({ seed, courseId, weather, laps = 2, skills, rules = 'ra
   const entries = botEntries(seed, skills.length, skills, (i) => (classes ? classes[i] : 'dinghy'));
   const race = makeRace({ seed, courseId, laps, weather, rules, entries, preStart, closeAfter });
   placeFleet(race);
+  race.hardLimit = Infinity; // here the question is whether a skipper gets stuck, not how long the officer waits
   let guard = 0;
   while (race.phase !== 'done' && guard++ < 30 * 2400) {
     thinkSkippers(race);
