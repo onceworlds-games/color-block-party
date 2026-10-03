@@ -12,26 +12,26 @@ export function makeWakes() {
   return new Map();
 }
 
-export function updateWakes(wakes, boats, t, reduced) {
+export function updateWakes(wakes, boats, t, reduced, low = false) {
   for (const b of boats) {
     let w = wakes.get(b.id);
     if (!w) wakes.set(b.id, (w = { pts: [], last: -1 }));
-    if (t - w.last < (reduced ? 0.3 : 0.12)) continue;
+    if (t - w.last < (reduced ? 0.3 : low ? 0.2 : 0.12)) continue;
     w.last = t;
     const sx = b.drawX - Math.cos(b.drawH) * 2.1;
     const sy = b.drawY - Math.sin(b.drawH) * 2.1;
     w.pts.push({ x: sx, y: sy, t, v: b.v, h: b.drawH });
-    const keep = reduced ? 6 : 26;
+    const keep = reduced ? 6 : low ? 10 : 26;
     while (w.pts.length > keep) w.pts.shift();
   }
   for (const id of wakes.keys()) if (!boats.some((b) => b.id === id)) wakes.delete(id);
 }
 
-export function drawWakes(view, wakes, boats, t, reduced) {
+export function drawWakes(view, wakes, boats, t, reduced, low = false) {
   const ctx = view.ctx;
   const z = view.cam.zoom;
   ctx.lineCap = 'round';
-  const life = reduced ? 1.2 : 2.4;
+  const life = reduced ? 1.2 : low ? 1.6 : 2.4;
   for (const b of boats) {
     const w = wakes.get(b.id);
     if (!w || w.pts.length < 2 || (b.alpha ?? 1) < 0.3 || b.hidden) continue;

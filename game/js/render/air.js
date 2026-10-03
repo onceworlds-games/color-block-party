@@ -12,11 +12,11 @@ export function makeAir(rand = Math.random) {
 }
 
 /** Moves and redraws the streaks; `n` how many to keep (by quality and motion settings). */
-export function drawAir(view, air, wind, t, dt, n, reduced) {
+export function drawAir(view, air, wind, t, dt, n, reduced, low = false) {
   const ctx = view.ctx;
   const z = view.cam.zoom;
   const B = view.bounds(20);
-  drawCells(view, air, wind, t, reduced);
+  drawCells(view, air, wind, t, reduced, low);
   if (wind.front) drawFront(view, wind, t);
   // Streaks: long wisps of air that ride the wind, tapering at both ends, longer and darker in the gusts. Drawn as
   // thin bowed leaves in four batches by strength (fading in and out).
@@ -80,7 +80,7 @@ function spawn(B, age, rand = Math.random) {
 }
 
 /** Gusts as fields of dark ripples, lulls as glassy pale patches. Ripples are seeded per cell so they don't flicker. */
-function drawCells(view, air, wind, t, reduced) {
+function drawCells(view, air, wind, t, reduced, low = false) {
   const ctx = view.ctx;
   const z = view.cam.zoom;
   const B = view.bounds(45);
@@ -91,6 +91,14 @@ function drawCells(view, air, wind, t, reduced) {
     if (c.x + c.r < B.x0 || c.x - c.r > B.x1 || c.y + c.r < B.y0 || c.y - c.r > B.y1) continue;
     const mag = Math.abs(c.s);
     if (mag < 0.03) continue;
+    if (low) {
+      // The cheap tier: a flat disc, no gradient, no ripples (still dark for a gust, pale for a lull).
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, c.r * 0.8, 0, Math.PI * 2);
+      ctx.fillStyle = c.s < 0 ? `rgba(246,240,226,${(0.3 * mag).toFixed(3)})` : `rgba(14,42,58,${Math.min(0.3, 0.5 * mag).toFixed(3)})`;
+      ctx.fill();
+      continue;
+    }
     if (c.s < 0) {
       // A lull: the water goes glassy.
       const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);

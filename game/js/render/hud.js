@@ -7,6 +7,8 @@ import { hashf } from '../sim/rng.js';
 
 const DEG = Math.PI / 180;
 const S = { x: 0, y: 0 };
+let LOW = false; // the cheap tier: no halos round the lettering
+export const setHudLow = (v) => (LOW = !!v);
 
 export function fmtClock(s, tenths = false) {
   const neg = s < 0;
@@ -22,7 +24,7 @@ function text(ctx, str, x, y, { font = `500 13px ${FONT_SERIF}`, color = PALETTE
   ctx.textAlign = align;
   ctx.textBaseline = base;
   ctx.letterSpacing = spacing;
-  if (halo) {
+  if (halo && !LOW) {
     ctx.lineWidth = 3.5;
     ctx.lineJoin = 'round';
     ctx.strokeStyle = 'rgba(239,230,210,0.88)';

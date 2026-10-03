@@ -4,7 +4,7 @@ import { drawChart } from './render/chart.js';
 import { drawAir, drawBarbs } from './render/air.js';
 import { drawBoat, drawShadow, drawTag, drawWakes, updateWakes } from './render/boats.js';
 import { drawMarks, drawLaylines } from './render/marks.js';
-import { drawBoatRing, drawClock, drawFog, drawMarkPointer, drawMiniChart, drawNotice, drawStamp, drawStandings, drawWindRose } from './render/hud.js';
+import { drawBoatRing, drawClock, drawFog, drawMarkPointer, drawMiniChart, drawNotice, drawStamp, drawStandings, drawWindRose, setHudLow } from './render/hud.js';
 import { updateCamera, PALETTE, LIVERIES } from './render/view.js';
 import { hudData, me, standingRows } from './session.js';
 import { coneStrength } from './sim/shadow.js';
@@ -179,8 +179,9 @@ export function drawScene(view, sc, s, ui) {
   sc.lastT = ui.now;
   drawChart(view, ui.chart, ui.quality, ui.bearing);
   view.worldTransform();
-  const streaks = ui.streaks ?? (ui.reduced ? 26 : ui.quality === 'low' ? 40 : ui.quality === 'medium' ? 70 : 100);
-  drawAir(view, ui.air, race.wind, t, dt, streaks, ui.reduced);
+  const streaks = ui.streaks ?? (ui.reduced ? 26 : ui.quality === 'low' ? 28 : ui.quality === 'medium' ? 70 : 100);
+  const low = ui.quality === 'low';
+  drawAir(view, ui.air, race.wind, t, dt, streaks, ui.reduced, low);
   if (ui.quality !== 'low') drawBarbs(view, race.wind, t);
   // The race as plotted: with the results (inked in), or while the chart view is held.
   recordTracks(sc, race);
@@ -217,8 +218,8 @@ export function drawScene(view, sc, s, ui) {
       if (st > 0.02) drawShadow(view, o, true);
     }
   }
-  updateWakes(sc.wakes, race.boats, t, ui.reduced);
-  drawWakes(view, sc.wakes, race.boats, t, ui.reduced);
+  updateWakes(sc.wakes, race.boats, t, ui.reduced, low);
+  drawWakes(view, sc.wakes, race.boats, t, ui.reduced, low);
   drawMarks(view, race.course, b ? b.pi : -1, ui.now, t - race.gunT, ui.reduced, !!(b && b.ocs));
   // Laylines near the next mark.
   if (b && !b.finished && b.pi > 0) {
@@ -258,6 +259,7 @@ export function drawScene(view, sc, s, ui) {
       drawTag(view, o, o.retired ? `${o.name} · retired` : o.name, false);
     }
   }
+  setHudLow(ui.quality === 'low');
   if (ui.hud !== false) drawHud(view, sc, s, ui);
 }
 
