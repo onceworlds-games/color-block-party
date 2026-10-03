@@ -8,10 +8,14 @@ Play it at [onceworlds.com/play/tack](https://onceworlds.com/play/tack).
 
 Race round the marks and across the finish before everyone else. No boat sails straight into the wind, so you
 zigzag upwind with tacks, and steering settles into the groove (the fastest angle) on its own. The wind is never
-the same twice: gusts roll across as dark ripples, lulls go glassy, and the direction swings. Every sail leaves a
-cone of tired air downwind: stay out of theirs and put them in yours. Cross the line after the gun, not before.
-Under racing rules, port gives way to starboard, windward to leeward, the boat astern to the one ahead, and a
-boat tacking to everyone; a collision costs the boat at fault a two-second stall, and so does touching a mark.
+the same twice: gusts roll across as dark ripples, lulls go glassy, and the direction swings. Your boat's ring says
+what the wind is doing to you: HEADED means the shift has turned against this tack (time to tack), LIFTED means it
+has turned your way, and DIRTY AIR is another sail's shadow (pale hatched cones on the water) costing you speed.
+Cross the line after the gun, not before: over early, the line turns red and you go back below it and cross again
+(you are out of everyone's way while you do). Under racing rules, port gives way to starboard, windward to leeward,
+the boat astern to the one ahead, and a boat tacking to everyone; a collision costs the boat at fault a two-second
+stall, and so does touching a mark. Within three boat-lengths of a mark (the dotted ring) the fleet sorts the
+rounding out between them: boats that touch there only bump.
 
 | | Keyboard | Touch | Gamepad |
 |---|---|---|---|
@@ -47,7 +51,10 @@ boat tacking to everyone; a collision costs the boat at fault a two-second stall
 Every page builds the same course, wind and gusts from the match's seed and the room's clock, and sails its own
 boat, sending where it is twenty times a second; the host's page sails the rival skippers and keeps the race
 record (finishes are checked, then the results go to everyone). A reload puts your boat back where it was, a new
-host carries the skippers on, and a boat whose sailor leaves retires and is gone after fifteen seconds.
+host carries the skippers on, and a boat whose sailor leaves retires and is gone after fifteen seconds. A page
+that draws only a few frames a second still keeps pace with the room's clock. The results stay up for thirty-five
+seconds in a public server, or until every sailor has tapped Harbour; a lone sailor against rival skippers starts
+after forty-five seconds instead of sixty.
 
 ## Progress
 
@@ -80,7 +87,7 @@ Plain ES modules and Canvas 2D, no build step: `game/` is served as it is.
 ```sh
 npm run dev       # the game on http://127.0.0.1:5173 (solo: no platform, rival skippers only)
 npm test          # unit tests (Node 22+)
-npm run balance   # the balance table; `npm run balance -- quick`, or one section: skills, classes, starts, courses, boats
+npm run balance   # the balance table (about two minutes); `npm run balance -- quick`, or one section: skills, classes, starts, courses, boats
 npm run store     # captures store/ from the poster scenes (needs Chrome)
 ```
 
