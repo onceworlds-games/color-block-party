@@ -29,6 +29,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const TESTING = `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`;
 const CHROME = process.env.CHROME ?? (existsSync(TESTING) ? TESTING : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
 
+const LIVE = new Set();
+let killer = false;
+
 export async function launch({ width = 1280, height = 720, gpu = false } = {}) {
   const profile = mkdtempSync(join(process.env.TMP_PROFILES ?? tmpdir(), 'hb-chrome-'));
   const args = [
@@ -49,12 +52,19 @@ export async function launch({ width = 1280, height = 720, gpu = false } = {}) {
   ];
   if (!gpu) args.unshift('--disable-gpu-sandbox');
   const chrome = spawn(CHROME, args, { stdio: 'ignore' });
-  // Never leave a browser behind, even when a test crashes.
-  process.on('exit', () => {
-    try {
-      chrome.kill('SIGKILL');
-    } catch {}
-  });
+  // Never leave a browser behind, even when a test crashes (one listener for all of them).
+  LIVE.add(chrome);
+  chrome.on('exit', () => LIVE.delete(chrome));
+  if (!killer) {
+    killer = true;
+    process.on('exit', () => {
+      for (const c of LIVE) {
+        try {
+          c.kill('SIGKILL');
+        } catch {}
+      }
+    });
+  }
   let port = Number(process.env.CDP_PORT ?? 0);
   for (let i = 0; i < 300 && !port; i++) {
     try {

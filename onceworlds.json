@@ -1,8 +1,35 @@
 {
   "slug": "tack",
   "name": "Tack",
-  "description": "Read the wind, steal theirs. Top-down sailboat racing where every boat casts a wind shadow.",
+  "description": "Top-down sailboat racing for up to ten, where the wind is the track and every sail casts a shadow.",
   "dir": "game",
   "productionBranch": "main",
-  "genre": "Racing"
+  "genre": "Racing",
+  "icon": "store/icon.png",
+  "thumbnails": ["store/thumb-1.png", "store/thumb-2.png", "store/thumb-3.png", "store/thumb-4.png"],
+  "badges": [
+    { "id": "first-race", "name": "First Race", "description": "Finish a race.", "icon": "store/badges/first-race.png" },
+    { "id": "clean-tack", "name": "Clean Tack", "description": "Ten clean tacks in one race.", "icon": "store/badges/clean-tack.png" },
+    { "id": "wind-thief", "name": "Wind Thief", "description": "Slow three boats with your wind shadow in one race.", "icon": "store/badges/wind-thief.png" },
+    { "id": "photo-finish", "name": "Photo Finish", "description": "Win a fleet race by under half a second.", "icon": "store/badges/photo-finish.png" },
+    { "id": "perfect-start", "name": "Perfect Start", "description": "Cross the line within half a second of the gun at full speed.", "icon": "store/badges/perfect-start.png" },
+    { "id": "no-fouls", "name": "No Fouls", "description": "Finish a racing-rules race without a foul.", "icon": "store/badges/no-fouls.png" },
+    { "id": "gust-rider", "name": "Gust Rider", "description": "Sail a whole minute in gusts in one race.", "icon": "store/badges/gust-rider.png" },
+    { "id": "ghost-buster", "name": "Ghost Buster", "description": "Beat your own ghost in a time trial.", "icon": "store/badges/ghost-buster.png" },
+    { "id": "par-excellence", "name": "Par Excellence", "description": "A gold medal in a time trial.", "icon": "store/badges/par-excellence.png" },
+    { "id": "cup-winner", "name": "Cup Winner", "description": "Win a career cup.", "icon": "store/badges/cup-winner.png" },
+    { "id": "every-weather", "name": "Every Weather", "description": "Race in all six weathers.", "icon": "store/badges/every-weather.png" },
+    { "id": "captain", "name": "Captain", "description": "Reach Captain 10.", "icon": "store/badges/captain.png" }
+  ],
+  "controls": [
+    { "keys": ["A", "D"], "action": "Steer (or the arrow keys)" },
+    { "keys": ["A", "D"], "action": "Press again in the groove to steer past it" },
+    { "keys": ["Space"], "action": "Tack or gybe" },
+    { "keys": ["Shift", "H"], "action": "Hike out (hold)" },
+    { "keys": ["Tab"], "action": "Chart of the whole course (hold)" },
+    { "keys": ["[", "]"], "action": "Zoom (or the mouse wheel)" },
+    { "keys": ["Touch"], "action": "Stick steers; Tack and Hike buttons" },
+    { "keys": ["Gamepad"], "action": "Left stick steers, A tacks, B or triggers hike" }
+  ],
+  "help": "Race round the marks and finish first. No boat sails straight into the wind: zigzag upwind with tacks. Steering settles into the groove, the fastest angle. Every sail casts a wind shadow downwind: stay out of theirs, put them in yours. Gusts are dark ripples on the water. Cross the line after the gun, not before. Racing rules: port gives way to starboard."
 }
