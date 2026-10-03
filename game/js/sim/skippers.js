@@ -13,7 +13,7 @@ export const SKILLS = [
   { id: 0, name: 'Deckhand', reaction: 0.5, noise: 4, look: 2, header: 12, confirm: 2, minLeg: 5, layErr: 14, startLate: 2.6, startErr: 1.6, angErr: 7, angBias: 4, trim: 0.745, respect: 0.7, hike: 0.3, clean: 0.3 },
   { id: 1, name: 'Mate', reaction: 0.35, noise: 3, look: 4, header: 8, confirm: 1.2, minLeg: 7, layErr: 8, startLate: 1.7, startErr: 0.9, angErr: 3.5, angBias: 2, trim: 0.86, respect: 0.88, hike: 0.6, clean: 0.65 },
   { id: 2, name: 'Skipper', reaction: 0.2, noise: 2, look: 7, header: 6, confirm: 0.8, minLeg: 8, layErr: 3.5, startLate: 1.0, startErr: 0.4, angErr: 1.5, angBias: 0.6, trim: 1, respect: 0.97, hike: 0.85, clean: 0.9 },
-  { id: 3, name: 'Legend', reaction: 0.1, noise: 1, look: 10, header: 5, confirm: 0.5, minLeg: 8, layErr: 1.5, startLate: 0.65, startErr: 0.18, angErr: 0.5, angBias: 0, trim: 1.008, respect: 1, hike: 1, clean: 1 },
+  { id: 3, name: 'Legend', reaction: 0.1, noise: 1, look: 10, header: 5, confirm: 0.5, minLeg: 8, layErr: 1.5, startLate: 0.65, startErr: 0.18, angErr: 0.5, angBias: 0, trim: 0.998, respect: 1, hike: 1, clean: 1 },
 ];
 
 export const PERSONAS = {
@@ -774,6 +774,20 @@ function avoid(race, b, br, sk, aim, wind, best, from) {
   }
   // Marks (and the committee boat) are obstacles too: under racing rules touching one is a foul.
   if (!threat && clearance(race, b, b.h, true) < 3.6) threat = 'mark';
+  // Stopped beside a buoy (head to wind in front of it, say): sailing on cannot clear it, sitting there never will. Sail off it.
+  if (threat === 'mark' && b.v < 1) {
+    br.markStuck = (br.markStuck ?? 0) + 0.2;
+    if (br.markStuck > 2.4) {
+      br.markStuck = 0;
+      const post = nearestPost(race, b);
+      if (post) {
+        br.duckUntil = t + 1.5;
+        br.duckAim = sailable(Math.atan2(b.y - post.y, b.x - post.x), wind, best, b.side);
+        b.tackReq = false;
+        return br.duckAim;
+      }
+    }
+  } else br.markStuck = 0;
   if (!threat || (threat !== 'mark' && br.r.next() > sk.respect)) return aim; // a Deckhand doesn't always look at boats; everyone sees a buoy
   const cls = CLASSES[b.cls];
   const away = -b.side; // turning this way bears away from the wind
@@ -810,6 +824,30 @@ function avoid(race, b, br, sk, aim, wind, best, from) {
   br.duckAim = headingFor(wind.vx, wind.vy, 12, b.side); // nothing clears: stop, head to wind
   br.brake = true;
   return br.duckAim;
+}
+
+/** The nearest buoy (a mark, a gate post, the committee boat or the pin) within a few metres, or null. */
+function nearestPost(race, b) {
+  const c = race.course;
+  let best = null;
+  let bd = 7 * 7;
+  const look = (x, y) => {
+    const d = (x - b.x) ** 2 + (y - b.y) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = { x, y };
+    }
+  };
+  for (const tg of c.targets) {
+    if (tg.type === 'mark') look(tg.x, tg.y);
+    else if (tg.x1 !== undefined) {
+      look(tg.x1, tg.y1);
+      look(tg.x2, tg.y2);
+    }
+  }
+  look(c.committee.x, c.committee.y);
+  look(c.pin.x, c.pin.y);
+  return best;
 }
 
 /**

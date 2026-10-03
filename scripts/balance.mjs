@@ -150,8 +150,9 @@ function classTable(n) {
       const classes = ['dinghy', 'skiff', 'catboat', 'cat', 'dinghy', 'skiff', 'catboat', 'cat'];
       // Rotate who starts where, so no class always gets the same slot.
       const rot = classes.map((_, i) => classes[(i + k) % classes.length]);
-      // Two interleaved seed sets, so a lucky run of seeds doesn't pass for a result.
-      const { order } = runRace({ seed: 5000 + (k % 2) * 4000 + (k >> 1) * 13 + h.courseId, courseId: h.courseId, weather: h.weather, laps: h.laps, skills: [2, 2, 2, 2, 2, 2, 2, 2], classes: rot });
+      // Three interleaved seed sets: the shares move by ten points between seed sets of a hundred races, so a lucky run
+      // of seeds mustn't pass for a result.
+      const { order } = runRace({ seed: 5000 + (k % 3) * 4000 + Math.floor(k / 3) * 13 + h.courseId, courseId: h.courseId, weather: h.weather, laps: h.laps, skills: [2, 2, 2, 2, 2, 2, 2, 2], classes: rot });
       if (order[0]?.finished) wins[order[0].cls]++;
     }
     out[h.cls] = wins;
@@ -271,7 +272,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const t0 = Date.now();
   if (want('boats')) boatTable();
   if (want('skills')) skillTable(quick ? 12 : 60);
-  if (want('classes')) classTable(quick ? 48 : 160);
+  if (want('classes')) classTable(quick ? 48 : 192);
   if (want('starts')) startTable(quick ? 60 : 160);
   if (want('courses')) courseTable(1);
   console.log(`\n(${((Date.now() - t0) / 1000).toFixed(0)} s)`);

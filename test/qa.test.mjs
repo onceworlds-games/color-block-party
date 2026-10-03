@@ -146,3 +146,16 @@ test('a veer lifts the starboard tack and heads the port tack, and the helm cue 
   for (let i = 0; i < 300; i++) updateLift(L, 12 * DEG, -1, 1 / 30);
   assert.ok(L.headedT > 3, `headed for ${L.headedT} s`);
 });
+
+test('no skipper sits head to wind in front of a buoy for ever (the fog race that once never ended for one boat)', () => {
+  const seed = 317;
+  const race = makeRace({ seed, courseId: 1, laps: 2, weather: 'fog', rules: 'racing', entries: botEntries(seed, 8, [0, 1, 2, 3, 0, 1, 2, 3]), preStart: 60 });
+  placeFleet(race);
+  race.hardLimit = Infinity;
+  while (race.t < race.gunT + 900 && race.boats.some((b) => !b.finished)) {
+    thinkSkippers(race);
+    stepRace(race, SIM_DT);
+    race.events.length = 0;
+  }
+  assert.ok(race.boats.every((b) => b.finished), `unfinished: ${race.boats.filter((b) => !b.finished).map((b) => `${b.id}@pi${b.pi}`)}`);
+});
