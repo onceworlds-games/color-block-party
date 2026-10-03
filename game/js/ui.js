@@ -38,11 +38,10 @@ export function clearUi() {
 
 // ------------------------------------------------------------------------------------------------ title
 
-export function showTitle(onSail) {
+export function showTitle(onSail, label = 'Sail') {
   const wrap = el('div', 'screen title');
   const mark = el('h1', 'wordmark', 'TACK');
-  const go = button('Sail', onSail, 'primary big');
-  go.setAttribute('aria-label', 'Sail');
+  const go = button(label, onSail, 'primary big');
   wrap.append(mark, go);
   root().replaceChildren(wrap);
 }
@@ -206,10 +205,21 @@ export function showResults(r) {
   const foot = el('div', 'row');
   if (r.onContinue) foot.append(button(r.continueLabel ?? 'Harbour', r.onContinue, 'primary'));
   if (r.onAgain) foot.append(button('Again', r.onAgain));
-  if (r.countdown !== null && r.countdown !== undefined) foot.append(el('span', 'countdown', `Harbour in ${Math.max(0, Math.ceil(r.countdown))}s`));
+  if (r.countdown !== null && r.countdown !== undefined) foot.append(el('span', 'countdown', countdownText(r.countdown)));
   if (foot.childNodes.length) card.append(foot);
   wrap.append(head, card);
   root().replaceChildren(wrap);
+}
+
+const countdownText = (s) => `Harbour in ${Math.max(0, Math.ceil(s))}s`;
+
+/** Updates the results card's countdown without rebuilding it (a rebuild would drop a press and the table's scroll). */
+export function setCountdown(s) {
+  const e = root().querySelector('.countdown');
+  if (e) {
+    const t = countdownText(s);
+    if (e.textContent !== t) e.textContent = t;
+  }
 }
 
 // ------------------------------------------------------------------------------------------------ career

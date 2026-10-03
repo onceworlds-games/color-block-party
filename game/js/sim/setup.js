@@ -3,7 +3,7 @@
 
 import { COURSES, COURSE_COUNT, autoCourse } from './course.js';
 import { CLASS_IDS } from './polar.js';
-import { hash32, hashf, rng } from './rng.js';
+import { hash32, hashf, rng, seedOf } from './rng.js';
 import { botEntries } from './skippers.js';
 
 /**
@@ -124,13 +124,18 @@ export function raceSetup(settings, seed, humans, looks = {}) {
   const nBots = trial ? 0 : Math.max(0, target - ids.length);
   // Liveries: each person's choice unless someone earlier in the order has it; then the next free one.
   const used = new Set();
+  const numbers = new Set();
   const entries = ids.map((id, i) => {
     const lk = looks[id] ?? {};
     let livery = Number.isInteger(lk.livery) && lk.livery >= 0 && lk.livery < 10 ? lk.livery : i % 10;
     while (used.has(livery)) livery = (livery + 1) % 10;
     used.add(livery);
     const cls = mixed && CLASS_IDS.includes(lk.cls) ? lk.cls : 'dinghy';
-    return { id, name: String(lk.name ?? '').slice(0, 24) || 'Sailor', cls, livery, pattern: lk.pattern ?? 'plain', num: lk.num ?? i + 1, flag: lk.flag ?? 'none', wake: lk.wake ?? 'foam' };
+    // A sail number of their own, steady from race to race (from their id), and never twice in one fleet.
+    let num = 1 + (seedOf(id) % 19);
+    while (numbers.has(num)) num = (num % 19) + 1;
+    numbers.add(num);
+    return { id, name: String(lk.name ?? '').slice(0, 24) || 'Sailor', cls, livery, pattern: lk.pattern ?? 'plain', num, flag: lk.flag ?? 'none', wake: lk.wake ?? 'foam' };
   });
   const skills = fillSkills(nBots, seed);
   const r = rng(hash32(seed >>> 0, 17));

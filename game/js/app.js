@@ -456,14 +456,14 @@ function route(cur) {
   const room = app.room;
   let key;
   if (app.closed) key = `closed:${app.closed}`;
-  else if (app.screen === 'title') key = 'title';
+  else if (app.screen === 'title') key = `title:${titleLabel()}`;
   else if (app.solo) key = app.solo.results ? 'solo-res' : app.solo.paused ? 'pause' : `solo:${app.solo.kind}`;
   else if (app.career) key = `career:${JSON.stringify(app.profile.career)}`;
   else if (cur.kind === 'match') {
     const rec = app.match.record;
     if (rec?.done && app.results) {
-      const left = rec.endAt !== null && room.kind !== 'private' ? Math.ceil((rec.endAt + RESULTS_PUBLIC_MS - room.matchNow()) / 1000) : null;
-      key = `res:${app.match.mid}:${left}:${room.isHost}`;
+      key = `res:${app.match.mid}:${room.isHost}`;
+      if (room.kind !== 'private' && rec.endAt !== null) ui.setCountdown(Math.ceil((rec.endAt + RESULTS_PUBLIC_MS - room.matchNow()) / 1000));
     } else key = `race:${room.spectating ? 'w' : 'r'}`;
   } else key = `harbour:${harbourKey()}`;
   // Ready/Start is for the harbour only.
@@ -472,10 +472,10 @@ function route(cur) {
   if (key === app.uiKey) return;
   app.uiKey = key;
   if (key.startsWith('closed')) ui.showClosed(app.closed, rejoin);
-  else if (key === 'title') ui.showTitle(sail);
+  else if (key.startsWith('title')) ui.showTitle(sail, titleLabel());
   else if (key === 'pause') ui.showPause(() => setPaused(false));
   else if (key === 'solo-res') showSoloResults();
-  else if (key.startsWith('solo:')) ui.showCorner([[app.solo.kind === 'lesson' ? 'Skip' : 'Leave', leaveSolo]]);
+  else if (key.startsWith('solo:')) ui.showCorner([[app.solo.kind === 'lesson' ? 'Skip' : 'Leave', app.solo.kind === 'lesson' ? skipLesson : leaveSolo]]);
   else if (key.startsWith('career')) ui.showCareer({ profile: app.profile, onSail: startCareer, onBack: () => ((app.career = false), (app.uiKey = '')) });
   else if (key.startsWith('res')) showMatchResults();
   else if (key.startsWith('race')) ui.clearUi();
@@ -487,12 +487,19 @@ function harbourKey() {
   return JSON.stringify([settings(), room?.isHost, room?.host, room?.match?.phase, look(), levelOf(app.profile.xp), room?.notReady?.map((p) => p.id), !!app.results]);
 }
 
+/** The title's one button: Sail, or Rejoin / Watch when the page opens (or reloads) into a race that is under way. */
+function titleLabel() {
+  const m = app.room?.match;
+  if (m?.phase !== 'playing') return 'Sail';
+  return app.room.spectating ? 'Watch' : 'Rejoin';
+}
+
 function sail() {
   audio.unlock();
   audio.cue('ui');
   app.screen = 'harbour';
   app.uiKey = '';
-  if (!app.profile.tutorial) startLesson();
+  if (!app.profile.tutorial && app.room?.match?.phase !== 'playing') startLesson();
 }
 
 function showHarbour() {
@@ -629,6 +636,14 @@ function startCareer(cup) {
 
 function startQuick() {
   beginSolo(quickSession(settings(), look(), (Math.random() * 1e9) >>> 0));
+}
+
+/** Skipping the lesson is an answer: the title doesn't send the player back to it every visit (the harbour keeps a Lesson button). */
+function skipLesson() {
+  app.profile.tutorial = true;
+  markDirty();
+  flushSave(true);
+  leaveSolo();
 }
 
 function leaveSolo() {
