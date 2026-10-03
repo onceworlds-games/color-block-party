@@ -269,7 +269,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const t0 = Date.now();
   if (want('boats')) boatTable();
   if (want('skills')) skillTable(quick ? 12 : 60);
-  if (want('classes')) classTable(quick ? 24 : 48);
+  if (want('classes')) classTable(quick ? 32 : 96);
   if (want('starts')) startTable(quick ? 60 : 160);
   if (want('courses')) courseTable(1);
   console.log(`\n(${((Date.now() - t0) / 1000).toFixed(0)} s)`);

@@ -44,7 +44,7 @@ export function makeBoat(id, clsId, x, y, h) {
     // Race.
     pi: 0, wind: 0, track: { side: 0 }, ocs: false, started: false, startT: null, startV: 0,
     finished: false, finishT: null, place: 0,
-    penalty: 0, foulFlag: 0, grounded: 0, groundImmune: 0, outside: 0,
+    penalty: 0, foulFlag: 0, grounded: 0, groundImmune: 0, outside: 0, touchT: -99,
     remote: false, retired: false, ghost: false, parked: false,
     trim: 1, // how well the sails are trimmed: people always get 1 (the boat trims itself); rival skippers by skill
     name: '', bot: null,

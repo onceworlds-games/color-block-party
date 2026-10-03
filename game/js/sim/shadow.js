@@ -33,7 +33,7 @@ export function coneStrength(cx, cy, ux, uy, x, y, len = SHADOW.len, tanHalf = T
 
 /** Does this boat cast a shadow and feel one? Finished, parked, retired and ghost boats don't. */
 export function interacts(b) {
-  return !b.ghost && !b.finished && !b.retired && !b.parked;
+  return !b.ghost && !b.finished && !b.retired && !b.parked && !b.ocs;
 }
 
 /**

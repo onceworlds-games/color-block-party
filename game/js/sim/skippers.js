@@ -10,10 +10,10 @@ import { inPolygon, inShoal, nearestOnPolygon } from './course.js';
 import { windAt } from './wind.js';
 
 export const SKILLS = [
-  { id: 0, name: 'Deckhand', reaction: 0.5, noise: 4, look: 2, header: 12, confirm: 2, minLeg: 5, layErr: 14, startLate: 2.6, startErr: 1.6, angErr: 7, angBias: 4, trim: 0.75, respect: 0.7, hike: 0.3, clean: 0.3 },
-  { id: 1, name: 'Mate', reaction: 0.35, noise: 3, look: 4, header: 8, confirm: 1.2, minLeg: 7, layErr: 8, startLate: 1.7, startErr: 0.9, angErr: 3.5, angBias: 2, trim: 0.885, respect: 0.88, hike: 0.6, clean: 0.65 },
+  { id: 0, name: 'Deckhand', reaction: 0.5, noise: 4, look: 2, header: 12, confirm: 2, minLeg: 5, layErr: 14, startLate: 2.6, startErr: 1.6, angErr: 7, angBias: 4, trim: 0.745, respect: 0.7, hike: 0.3, clean: 0.3 },
+  { id: 1, name: 'Mate', reaction: 0.35, noise: 3, look: 4, header: 8, confirm: 1.2, minLeg: 7, layErr: 8, startLate: 1.7, startErr: 0.9, angErr: 3.5, angBias: 2, trim: 0.86, respect: 0.88, hike: 0.6, clean: 0.65 },
   { id: 2, name: 'Skipper', reaction: 0.2, noise: 2, look: 7, header: 6, confirm: 0.8, minLeg: 8, layErr: 3.5, startLate: 1.0, startErr: 0.4, angErr: 1.5, angBias: 0.6, trim: 1, respect: 0.97, hike: 0.85, clean: 0.9 },
-  { id: 3, name: 'Legend', reaction: 0.1, noise: 1, look: 10, header: 5, confirm: 0.5, minLeg: 8, layErr: 1.5, startLate: 0.65, startErr: 0.18, angErr: 0.5, angBias: 0, trim: 1.006, respect: 1, hike: 1, clean: 1 },
+  { id: 3, name: 'Legend', reaction: 0.1, noise: 1, look: 10, header: 5, confirm: 0.5, minLeg: 8, layErr: 1.5, startLate: 0.65, startErr: 0.18, angErr: 0.5, angBias: 0, trim: 1.016, respect: 1, hike: 1, clean: 1 },
 ];
 
 export const PERSONAS = {
@@ -22,6 +22,8 @@ export const PERSONAS = {
   gambler: { id: 'gambler', name: 'Gambler', cover: 0, pinch: 0, inset: 0.1, risk: 0.9, clearAir: 0.6, sideBias: 1 },
   textbook: { id: 'textbook', name: 'Textbook', cover: 0.5, pinch: 0, inset: 0.15, risk: 1.1, clearAir: 0.8, sideBias: 0 },
 };
+/** Seconds every skipper adds to the plan for the gun: the line is judged by the bow, and nobody wants to be called back. */
+const START_MARGIN = 0.5;
 export const PERSONA_IDS = ['aggressive', 'cautious', 'gambler', 'textbook'];
 
 /** Playful skipper names (never players'); a race draws its fleet's names from its seed. */
@@ -308,7 +310,7 @@ function planStart(race) {
     const back = 26 + (i % 3) * 9;
     br.home = { x: pick.x + s55 * back, y: c55 * back };
     const g = (br.r.next() + br.r.next() + br.r.next() - 1.5) * 2; // roughly normal, sd ~1
-    br.startErr = sk.startLate * pe.risk + g * sk.startErr;
+    br.startErr = START_MARGIN + sk.startLate * pe.risk + g * sk.startErr;
   });
 }
 
@@ -420,7 +422,7 @@ function aimPoint(b, tg) {
       // Up the approach side to a point beside the mark (no further out than the boat already is: one that sagged
       // close doesn't climb back out)...
       if (along < 0) {
-        const L = Math.max(4.5, Math.min(9, Math.abs(dx * nx + dy * ny)));
+        const L = Math.max(8, Math.min(11, Math.abs(dx * nx + dy * ny)));
         return { x: tg.x + nx * app * L + tg.rx * 1.5, y: tg.y + ny * app * L + tg.ry * 1.5 }; // just level: reaching it starts the turn
       }
       // ...then, level with it, round it: across the rounding ray to the exit side, clear of the buoy.
@@ -463,7 +465,7 @@ function beat(race, b, br, sk, pe, wind, best, P, dist) {
   const brgP = Math.atan2(P.y - b.y, P.x - b.x);
   const offE = angDiff(fromE, brgP) / DEG; // + : the point lies to the right of the wind's eye
   const lay = up + br.layErr;
-  if ((cur > 0 ? offE >= lay : offE <= -lay) && since > 3) return doTack(b, br, t, wind, up, true);
+  if ((cur > 0 ? offE >= lay : offE <= -lay) && since > 3) return doTack(b, br, t, wind, up, 9);
   // Fetching: steer straight for it (or close-hauled if it is just above).
   if (cur > 0 ? offE <= -(lay - 1) : offE >= lay - 1) return toPoint(b, P, wind, best, Math.atan2(-wind.vy, -wind.vx));
   const curOff = Math.abs(angDiff(headingFor(br.ewx, br.ewy, up, cur), brgP)) / DEG;
@@ -518,7 +520,7 @@ function run(race, b, br, sk, pe, wind, best, P, dist) {
   const markRight = offE > 0;
   // Starboard tack (wind over the right side) runs down to the left; port to the right.
   const onFavoured = cur > 0 ? !markRight : markRight;
-  if (!onFavoured && offDown >= lay && since > 3) return doTack(b, br, t, wind, down, true);
+  if (!onFavoured && offDown >= lay && since > 3) return doTack(b, br, t, wind, down, 9);
   if (onFavoured && offDown >= lay - 1) return toPoint(b, P, wind, best, Math.atan2(-wind.vy, -wind.vx));
   // Downwind a veer helps starboard and a back helps port: gybe when the current gybe is the one that lost out.
   const lifted = -shiftOf(br) * cur;
@@ -548,7 +550,8 @@ function shiftOf(br) {
 function doTack(b, br, t, wind, angle, force = false) {
   const h = headingFor(wind.vx, wind.vy, angle, -b.side);
   if (!tackSafe(b.race, b, h)) {
-    if (!force || t - (br.waitT ?? t) < 4) {
+    // `force`: tack anyway after waiting this long for room (true: 4 s); a skipper never tacks into a neighbour for a layline.
+    if (!force || t - (br.waitT ?? t) < (force === true ? 4 : force)) {
       br.waitT = br.waitT ?? t;
       return headingFor(wind.vx, wind.vy, angle, b.side);
     }
@@ -748,7 +751,8 @@ function avoid(race, b, br, sk, aim, wind, best, from) {
   let threat = null;
   let soonest = Infinity;
   for (const o of race.boats) {
-    if (o === b || o.finished || o.retired || o.parked || o.ghost) continue;
+    // A boat returning over the line is out of everyone's way (and has nobody in its): see rules.js touchable().
+    if (o === b || o.finished || o.retired || o.parked || o.ghost || o.ocs || b.ocs) continue;
     const dx = o.x - b.x;
     const dy = o.y - b.y;
     if (dx * dx + dy * dy > 34 * 34) continue;
@@ -767,8 +771,8 @@ function avoid(race, b, br, sk, aim, wind, best, from) {
     }
   }
   // Marks (and the committee boat) are obstacles too: under racing rules touching one is a foul.
-  if (!threat && clearance(race, b, b.h, true) < 3.2) threat = 'mark';
-  if (!threat || br.r.next() > sk.respect) return aim; // a Deckhand doesn't always look
+  if (!threat && clearance(race, b, b.h, true) < 3.6) threat = 'mark';
+  if (!threat || (threat !== 'mark' && br.r.next() > sk.respect)) return aim; // a Deckhand doesn't always look at boats; everyone sees a buoy
   const cls = CLASSES[b.cls];
   const away = -b.side; // turning this way bears away from the wind
   let bestH = null;
@@ -795,7 +799,7 @@ function avoid(race, b, br, sk, aim, wind, best, from) {
   // Near a mark there is no stopping: take the best way through.
   const tg = race.course.targets[b.pi];
   const atMark = tg && tg.type === 'mark' && Math.hypot(tg.x - b.x, tg.y - b.y) < 22;
-  if (bestH !== null && (bestC >= -2.5 || (atMark && t > race.gunT))) {
+  if (bestH !== null && (bestC >= -6 || (atMark && t > race.gunT))) {
     br.duckUntil = t + 0.6;
     br.duckAim = bestH;
     return bestH;
@@ -826,7 +830,7 @@ function clearance(race, b, h, marksOnly = false) {
     const tc = Math.max(0, Math.min(2.5, (rx * vx + ry * vy) / (sp * sp)));
     const d = Math.hypot(rx - vx * tc, ry - vy * tc);
     postMin = Math.min(postMin, d);
-    worst = Math.min(worst, d - 3.5);
+    worst = Math.min(worst, d - 3.9);
   };
   const tg = c.targets[b.pi];
   if (tg && tg.type === 'mark') post(tg.x, tg.y);
@@ -840,7 +844,7 @@ function clearance(race, b, h, marksOnly = false) {
   }
   if (marksOnly) return postMin;
   for (const o of race.boats) {
-    if (o === b || o.finished || o.retired || o.parked || o.ghost) continue;
+    if (o === b || o.finished || o.retired || o.parked || o.ghost || o.ocs || b.ocs) continue;
     const rx = o.x - b.x;
     const ry = o.y - b.y;
     const now = Math.sqrt(rx * rx + ry * ry);
@@ -860,17 +864,18 @@ function tackSafe(race, b, h, except = null) {
   const vx = Math.cos(h) * b.v * 0.7;
   const vy = Math.sin(h) * b.v * 0.7;
   for (const o of race.boats) {
-    if (o === b || o === except || o.finished || o.retired || o.parked || o.ghost) continue;
+    if (o === b || o === except || o.finished || o.retired || o.parked || o.ghost || o.ocs) continue;
     const rx = o.x - b.x;
     const ry = o.y - b.y;
-    if (rx * rx + ry * ry > 22 * 22) continue;
+    if (rx * rx + ry * ry > 26 * 26) continue;
     const ovx = Math.cos(o.h) * o.v - vx;
     const ovy = Math.sin(o.h) * o.v - vy;
     const vv = ovx * ovx + ovy * ovy;
-    const tc = vv < 1e-6 ? 0 : Math.max(0, Math.min(3.5, -(rx * ovx + ry * ovy) / vv));
+    const tc = vv < 1e-6 ? 0 : Math.max(0, Math.min(4.5, -(rx * ovx + ry * ovy) / vv));
     const cx = rx + ovx * tc;
     const cy = ry + ovy * tc;
-    if (cx * cx + cy * cy < 7 * 7) return false;
+    // A tack swings the bow through the wind (about 4.5 m of boat): the other boat needs room for that too.
+    if (cx * cx + cy * cy < 9.5 * 9.5 || rx * rx + ry * ry < 8.5 * 8.5) return false;
   }
   return true;
 }

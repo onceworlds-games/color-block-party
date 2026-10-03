@@ -269,7 +269,8 @@ function bumpPost(race, b, x, y, r, foul, ev) {
   race.contacts.set(key, race.t);
   if (last !== undefined && race.t - last < 1.5) return;
   b.v *= 0.9;
-  if (foul && b.penalty <= 0) {
+  // Pushed onto the buoy by another boat a moment ago: no foul.
+  if (foul && b.penalty <= 0 && race.t - b.touchT > 1.5) {
     b.penalty = 2;
     b.foulFlag = 6;
     b.stats.fouls++;

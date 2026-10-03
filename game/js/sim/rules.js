@@ -47,6 +47,20 @@ export function giveWay(a, b, now = Infinity) {
   return pa < pb ? a : b;
 }
 
+/** Within this many metres of a mark the fleet is sorting out the rounding: boats that touch there only bump. */
+export const MARK_ZONE = 14;
+
+/** Is a point inside the zone round any buoy of the course (or the start boats' ends)? */
+function inMarkZone(race, x, y) {
+  const r2 = MARK_ZONE * MARK_ZONE;
+  for (const tg of race.course.targets) {
+    if (tg.type === 'mark') {
+      if ((tg.x - x) ** 2 + (tg.y - y) ** 2 < r2) return true;
+    } else if (tg.type === 'gate' && ((tg.x1 - x) ** 2 + (tg.y1 - y) ** 2 < r2 || (tg.x2 - x) ** 2 + (tg.y2 - y) ** 2 < r2)) return true;
+  }
+  return false;
+}
+
 const pairKey = (a, b) => (a.id < b.id ? `${a.id}|${b.id}` : `${b.id}|${a.id}`);
 
 /**
@@ -79,7 +93,11 @@ export function resolveContacts(race, events) {
         const nx = dx / d;
         const ny = dy / d;
         const overlap = Math.min(1.2, D - Math.max(d, 0.001));
-        const culprit = racing ? giveWay(a, b, now) : null;
+        // Boats that touch have little room to avoid it: whoever was pushed into a mark afterwards is let off (see race.js).
+        a.touchT = now;
+        b.touchT = now;
+        const room = racing && inMarkZone(race, (a.x + b.x) / 2, (a.y + b.y) / 2);
+        const culprit = racing && !room ? giveWay(a, b, now) : null;
         // Share the push: the boat at fault moves most; a network boat doesn't move at all.
         let sa = culprit === a ? 0.8 : culprit === b ? 0.2 : 0.5;
         if (a.remote) sa = 0;
@@ -125,8 +143,9 @@ export function resolveContacts(race, events) {
   if (race.contacts.size > 64) for (const [k, t] of race.contacts) if (now - t > FOUL_COOLDOWN) race.contacts.delete(k);
 }
 
+/** Boats that are not in the fleet's way: ghosts, finished and parked boats, and one returning from over the line. */
 function touchable(b) {
-  return !b.ghost && !b.finished && !b.retired && !b.parked;
+  return !b.ghost && !b.finished && !b.retired && !b.parked && !b.ocs;
 }
 
 /**
