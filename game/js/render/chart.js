@@ -266,8 +266,7 @@ export function drawChart(view, chart, q, compassBearing = 0) {
   view.screenTransform();
   ctx.fillStyle = PALETTE.paper;
   ctx.fillRect(0, 0, view.w, view.h);
-  const off = (typeof location !== 'undefined' && location.search) || '';
-  if (q !== 'low' && !off.includes('nograin')) {
+  if (q !== 'low') {
     const grain = getGrain(ctx);
     if (grain && grain.setTransform) {
       const ox = (-view.cam.x * z) % 192;
@@ -281,7 +280,7 @@ export function drawChart(view, chart, q, compassBearing = 0) {
   }
   view.worldTransform();
   // Washes: the texture scaled up smooth reads as ink washed onto the paper.
-  if (chart.wash && !off.includes('nowash')) {
+  if (chart.wash) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(chart.wash, chart.x0 - CELL / 2, chart.y0 - CELL / 2, chart.nx * CELL, chart.ny * CELL);
   }
