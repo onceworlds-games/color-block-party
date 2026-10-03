@@ -259,6 +259,7 @@ export function drawBoatRing(view, me, h) {
   // What the water is telling the helm: over early, someone's dirty air, a header or a lift.
   let tag = null;
   if (me.ocs) tag = ['OVER EARLY · GO BACK', PALETTE.red];
+  else if (me.outside > 2) tag = ['OUT OF BOUNDS', PALETTE.red];
   else if (h.dirty) tag = [`DIRTY AIR  -${h.dirty}%`, PALETTE.red];
   else if (h.lift !== null && h.lift !== undefined && me.twa < 75 && !me.irons) {
     if (h.lift <= -6) tag = [`HEADED  ${Math.abs(Math.round(h.lift))}°`, PALETTE.red];

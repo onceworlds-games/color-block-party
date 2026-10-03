@@ -271,6 +271,11 @@ function tick(ts) {
     if (cue) audio.cue(cue, e, meId);
     if (e.type === 'finish' && e.id === meId) finishStamp(cur.s, e, now);
   }
+  // Past the dashed boundary the water is slow and the officer says so, now and then.
+  if (mine && !mine.finished && mine.outside > 2 && now - (app.outsideAt ?? -99) > 7) {
+    app.outsideAt = now;
+    notify(app.notices, now, 'Return to the course', { sub: 'The dashed line is the edge.', kind: 'bad', dur: 3, prio: 4 });
+  }
   if (mine && !mine.finished) {
     windAt(cur.s.race.wind, mine.x, mine.y, cur.s.race.t, WS);
     updateLift(app.lift, WS.shift, mine.side, dt);
@@ -524,7 +529,8 @@ function sail() {
   audio.cue('ui');
   app.screen = 'harbour';
   app.uiKey = '';
-  if (!app.profile.tutorial && app.room?.match?.phase !== 'playing') startLesson();
+  // The lesson is for a quiet harbour: never while a countdown or a race is under way (it un-readies the player).
+  if (!app.profile.tutorial && (!app.room || app.room.match?.phase === 'lobby')) startLesson();
 }
 
 function showHarbour() {
