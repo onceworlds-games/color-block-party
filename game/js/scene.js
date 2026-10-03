@@ -63,8 +63,11 @@ export function aimCamera(view, sc, s, dt, input, reduced) {
     }
     if (near < 40) span = Math.max(span, near * 1.5 + 14);
     if (race.t < race.gunT) {
-      span = Math.max(span, race.course.halfLine * 2 + 30);
-      ty = (ty + b.drawY * 2 + 0) / 3;
+      // Before the gun: the boat and the line both in view.
+      const lx = Math.max(-race.course.halfLine, Math.min(race.course.halfLine, b.drawX));
+      tx = (b.drawX + lx) / 2;
+      ty = b.drawY / 2;
+      span = Math.max(span, Math.min(140, Math.abs(b.drawY) * 1.5 + 30));
     }
     span = Math.min(170, span) * Math.pow(0.8, sc.zoomBias);
     cam.tx = tx;
@@ -126,7 +129,9 @@ export function drawScene(view, sc, s, ui) {
   }
   // Boats, with the visibility of fog.
   const vis = race.wind.visibility;
+  if (ui.extra) for (const g of ui.extra) drawBoat(view, g, ui.now);
   for (const o of race.boats) {
+    if (o.hidden) continue;
     o.alpha = o.retired ? 0.35 : o.finished || o.parked ? 0.6 : o.ghost && o !== b ? 0.45 : 1;
     if (b && Number.isFinite(vis) && o !== b && Math.hypot(o.x - b.x, o.y - b.y) > vis) continue;
     o.foul = o.foulFlag > 0;
@@ -139,15 +144,15 @@ export function drawScene(view, sc, s, ui) {
   }
   // Name tags (screen space).
   view.screenTransform();
-  if (ui.names !== false) {
+  if (ui.names !== false && ui.hud !== false) {
     for (const o of race.boats) {
-      if (o === b || o.alpha < 0.3) continue;
+      if (o === b || o.alpha < 0.3 || o.hidden) continue;
       if (b && Number.isFinite(vis) && Math.hypot(o.x - b.x, o.y - b.y) > vis) continue;
       if (view.cam.zoom < 3.2) continue;
       drawTag(view, o, o.retired ? `${o.name} · retired` : o.name, false);
     }
   }
-  drawHud(view, sc, s, ui);
+  if (ui.hud !== false) drawHud(view, sc, s, ui);
 }
 
 function drawHud(view, sc, s, ui) {
@@ -181,7 +186,7 @@ function drawHud(view, sc, s, ui) {
       sc.forecast = forecastShift(race, b);
     }
     const r = view.w < 420 ? 30 : 38;
-    const y = ui.touch ? 64 + r + 6 : view.h - r - 64;
+    const y = ui.touch ? 64 + 54 + r + 6 : view.h - r - 64;
     drawWindRose(view, 16 + r, y, r, { bearing: ui.bearing, shift: h.wind.shift, forecast: sc.forecast ?? h.wind.shift, kn: h.wind.kn, gusting: h.wind.gusting, bars: sc.bars });
   }
   if (b && !b.finished) {

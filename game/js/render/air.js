@@ -136,16 +136,16 @@ function drawFront(view, wind, t) {
  * Chart wind barbs on a fixed grid: the staff points where the wind comes from; a long feather is 10 knots, a short
  * one 5, a pennant 50.
  */
-export function drawBarbs(view, wind, t, spacing = 45) {
+export function drawBarbs(view, wind, t, spacing = 60) {
   const ctx = view.ctx;
   const z = view.cam.zoom;
   if (z * spacing < 70) return;
   const B = view.bounds(10);
-  ctx.strokeStyle = 'rgba(30,42,51,0.3)';
-  ctx.fillStyle = 'rgba(30,42,51,0.3)';
+  ctx.strokeStyle = 'rgba(30,42,51,0.24)';
+  ctx.fillStyle = 'rgba(30,42,51,0.24)';
   ctx.lineWidth = 1 / z;
   ctx.lineCap = 'round';
-  const L = 5;
+  const L = 4;
   for (let gy = Math.ceil(B.y0 / spacing) * spacing; gy < B.y1; gy += spacing) {
     for (let gx = Math.ceil(B.x0 / spacing) * spacing; gx < B.x1; gx += spacing) {
       const x = gx + (Math.floor(gy / spacing) % 2 ? spacing / 2 : 0);

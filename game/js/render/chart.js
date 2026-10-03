@@ -45,7 +45,7 @@ function depthAt(course, seed, x, y) {
 export function buildChart(race) {
   const c = race.course;
   const seed = (race.seed ^ (c.id * 2654435761)) >>> 0;
-  const m = 150;
+  const m = 260;
   const x0 = c.bounds.x0 - m;
   const y0 = c.bounds.y0 - m;
   const x1 = c.bounds.x1 + m;
@@ -106,6 +106,14 @@ function makeWash(chart) {
         }
       }
       blur[j * nx + i] = sum / n;
+    }
+  }
+  // Fade out toward the texture's edges so it never ends in a line.
+  const edge = 24;
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const e = Math.min(i, j, nx - 1 - i, ny - 1 - j);
+      if (e < edge) blur[j * nx + i] *= e / edge;
     }
   }
   for (let k = 0; k < nx * ny; k++) {
