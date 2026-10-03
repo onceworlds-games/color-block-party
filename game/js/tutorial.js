@@ -18,7 +18,7 @@ export const HINTS = {
   gybe: ['Downwind, Space gybes', 'Downwind, Tack gybes'],
   hike: ['Shift hikes: too much wind', 'Hike: too much wind'],
   layline: ['Dotted lines: tack there', 'Dotted lines: tack there'],
-  headed: ['Headed: tack to the other side', 'Headed: tap Tack'],
+  headed: ['Headed: try the other tack', 'Headed: tap Tack'],
   chart: ['Tab shows the whole course', ''],
   finish: ['Finish between the flags', 'Finish between the flags'],
 };
