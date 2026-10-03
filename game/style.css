@@ -173,7 +173,7 @@ html, body {
   .results { align-items: stretch; }
   .panel.legend { flex: 0 1 auto; }
   .harbour-head { max-width: 100%; }
-  .panel { width: 100%; flex: 1; margin-top: auto; max-height: 58vh; }
+  .panel { width: 100%; flex: 1; margin-top: auto; max-height: 52vh; }
   .card { padding: 14px 14px; }
   .card-title { font-size: 24px; }
   .corner { top: 62px; left: 10px; }

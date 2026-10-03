@@ -315,8 +315,8 @@ export function cue(name) {
         horn(t + 0.08, true);
         break;
       case 'start':
-        tone(t, 'triangle', rnd(520, 560), 0.12, 0.07);
-        tone(t + 0.09, 'triangle', rnd(780, 820), 0.16, 0.06);
+        tone(t, 'triangle', rnd(520, 560), 0.12, 0.18);
+        tone(t + 0.09, 'triangle', rnd(780, 820), 0.16, 0.15);
         break;
       case 'ocs':
         horn(t, false);
@@ -327,23 +327,23 @@ export function cue(name) {
         break;
       case 'clean':
         // tk-tk: two small clicks, then the hull settles.
-        noiseBurst(t, 0.03, 'bandpass', rnd(1700, 2000), 6, 0.22);
-        noiseBurst(t + 0.09, 0.03, 'bandpass', rnd(2100, 2400), 6, 0.18);
-        creak(t + 0.15, 0.6);
+        noiseBurst(t, 0.04, 'bandpass', rnd(1700, 2000), 5, 1.1);
+        noiseBurst(t + 0.09, 0.04, 'bandpass', rnd(2100, 2400), 5, 0.9);
+        creak(t + 0.15, 1);
         break;
       case 'messy':
-        creak(t, 1);
-        noiseBurst(t + 0.05, 0.4, 'bandpass', 1300, 1.2, 0.08);
+        creak(t, 3);
+        noiseBurst(t + 0.05, 0.4, 'bandpass', 1300, 1.2, 0.4);
         break;
       case 'irons':
-        noiseBurst(t, 0.6, 'bandpass', 1600, 2.5, 0.07, 1100);
+        noiseBurst(t, 0.6, 'bandpass', 1600, 2.5, 0.55, 1100);
         break;
       case 'gust':
-        noiseBurst(t, 0.9, 'bandpass', rnd(380, 450), 1.4, 0.12, rnd(1300, 1600));
+        noiseBurst(t, 0.9, 'bandpass', rnd(380, 450), 1.4, 0.6, rnd(1300, 1600));
         break;
       case 'foul':
-        tone(t, 'square', 140, 0.22, 0.09, null, 900);
-        tone(t, 'square', 147, 0.22, 0.07, null, 900);
+        tone(t, 'square', 140, 0.24, 0.12, null, 900);
+        tone(t, 'square', 147, 0.24, 0.1, null, 900);
         break;
       case 'bump':
         tone(t, 'sine', rnd(85, 100), 0.16, 0.25, 48);
@@ -357,8 +357,8 @@ export function cue(name) {
         bell(t);
         break;
       case 'wrong':
-        tone(t, 'triangle', 330, 0.18, 0.08, 250);
-        tone(t + 0.16, 'triangle', 247, 0.24, 0.08, 196);
+        tone(t, 'triangle', 330, 0.18, 0.17, 250);
+        tone(t + 0.16, 'triangle', 247, 0.24, 0.17, 196);
         break;
       case 'finish':
         myHorn(t);
@@ -371,11 +371,11 @@ export function cue(name) {
         horn(t, false);
         break;
       case 'steal':
-        tone(t, 'sine', rnd(660, 700), 0.1, 0.05);
+        tone(t, 'sine', rnd(660, 700), 0.12, 0.14);
         break;
       case 'ui':
-        noiseBurst(t, 0.025, 'bandpass', rnd(900, 1300), 3, 0.15);
-        tone(t, 'triangle', rnd(300, 340), 0.06, 0.04);
+        noiseBurst(t, 0.03, 'bandpass', rnd(900, 1300), 3, 0.45);
+        tone(t, 'triangle', rnd(300, 340), 0.07, 0.14);
         break;
       default:
     }

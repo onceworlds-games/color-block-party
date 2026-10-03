@@ -300,7 +300,7 @@ function tick(ts) {
     chart: app.chart,
     air: app.air,
     extra,
-    lift: mine && !mine.finished && app.lift.now !== null ? app.lift.deg : null,
+    lift: mine && !mine.finished && app.lift.now !== null && cur.s.race.t >= cur.s.race.gunT ? app.lift.deg : null,
     stamp: cur.kind === 'preview' ? null : app.stamp,
     plot: plotted,
     streaks: plotted ? 0 : undefined,

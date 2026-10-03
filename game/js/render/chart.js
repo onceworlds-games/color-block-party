@@ -6,6 +6,7 @@ import { PALETTE, FONT_SERIF } from './view.js';
 import { hashf, rng } from '../sim/rng.js';
 
 const CELL = 2.5; // metres per depth sample
+const SEA_BASE = '#78afb0';
 const SEA = { shallow: [0xc4, 0xe8, 0xdc], mid: [0x86, 0xc4, 0xbc], deep: [0x4f, 0x92, 0xa6] };
 
 /** Smooth value noise (deterministic): 0..1. */
@@ -271,7 +272,8 @@ export function drawChart(view, chart, q, compassBearing = 0) {
   const B = view.bounds(10);
   // Paper (screen space) with grain sliding with the world.
   view.screenTransform();
-  ctx.fillStyle = PALETTE.paper;
+  // Beyond the washed sheet the sea carries on in its mid tone, so a wide or zoomed-out view never shows a paper edge.
+  ctx.fillStyle = SEA_BASE;
   ctx.fillRect(0, 0, view.w, view.h);
   if (q !== 'low') {
     const grain = getGrain(ctx);

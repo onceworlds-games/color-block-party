@@ -250,9 +250,10 @@ export function drawBoatRing(view, me, h) {
   // Speed and VMG.
   const lx = R * 0.72 + 8;
   const ly = R * 0.72 + 10;
-  text(ctx, h.speed.toFixed(1), lx, ly, { font: `600 15px ${FONT_MONO}` });
-  text(ctx, 'kn', lx + 31, ly, { font: `italic 500 11px ${FONT_SERIF}`, color: PALETTE.inkSoft });
-  if (h.vmg !== null) text(ctx, `VMG ${h.vmg.toFixed(1)}`, lx, ly + 15, { font: `500 11px ${FONT_MONO}`, color: PALETTE.inkSoft });
+  const big = view.w < 520 ? 1.2 : 1; // a thumb's distance from the glass: a little larger on a phone
+  text(ctx, h.speed.toFixed(1), lx, ly, { font: `600 ${Math.round(15 * big)}px ${FONT_MONO}` });
+  text(ctx, 'kn', lx + 31 * big, ly, { font: `italic 500 ${Math.round(11 * big)}px ${FONT_SERIF}`, color: PALETTE.ink });
+  if (h.vmg !== null) text(ctx, `VMG ${h.vmg.toFixed(1)}`, lx, ly + 15 * big, { font: `500 ${Math.round(11 * big)}px ${FONT_MONO}`, color: PALETTE.ink });
   // What the water is telling the helm: over early, someone's dirty air, a header or a lift.
   let tag = null;
   if (me.ocs) tag = ['OVER EARLY · GO BACK', PALETTE.red];
