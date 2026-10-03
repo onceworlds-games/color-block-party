@@ -30,6 +30,5 @@
     { "keys": ["[", "]"], "action": "Zoom (or the mouse wheel)" },
     { "keys": ["Touch"], "action": "Stick steers; Tack and Hike buttons" },
     { "keys": ["Gamepad"], "action": "Stick steers, A tacks, B or RT hikes" }
-  ],
-  "help": "Race round the marks and finish first. No boat sails straight into the wind: zigzag upwind with tacks. Steering settles into the groove, the fastest angle. Every sail casts a wind shadow downwind: stay out of theirs, put them in yours. Gusts are dark ripples on the water. Cross the line after the gun, not before. Racing rules: port gives way to starboard."
+  ]
 }
