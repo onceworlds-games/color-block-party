@@ -361,7 +361,7 @@ function sail(race, b, br, sk, pe, wind, best, from) {
     br.layErr = (br.r.next() - 0.35) * sk.layErr;
     br.headT = 0;
   }
-  const P = aimPoint(b, tg);
+  const P = routeAround(race, b, aimPoint(b, tg));
   const brg = Math.atan2(P.y - b.y, P.x - b.x);
   const offA = Math.abs(angDiff(from, brg)) / DEG;
   const dist = Math.hypot(P.x - b.x, P.y - b.y);
@@ -513,6 +513,56 @@ function doTack(b, br, t, wind, angle, force = false) {
   br.headT = 0;
   b.tackReq = true;
   return h;
+}
+
+/** The course's islands and shoals as circles to steer round (centre, radius with a margin). */
+function obstaclesOf(race) {
+  if (race._obst) return race._obst;
+  const c = race.course;
+  race._obst = [
+    ...c.islands.map((il) => ({ x: il.x, y: il.y, r: il.rr + 6 })),
+    ...c.shoals.map((sh) => ({ x: sh.x, y: sh.y, r: Math.max(sh.rx, sh.ry) + 5 })),
+  ];
+  return race._obst;
+}
+
+/** Does the segment a -> b pass through a circle? */
+function segHitsCircle(ax, ay, bx, by, o) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const l2 = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((o.x - ax) * dx + (o.y - ay) * dy) / l2));
+  const px = ax + dx * t - o.x;
+  const py = ay + dy * t - o.y;
+  return px * px + py * py < o.r * o.r;
+}
+
+/**
+ * The way to a point round any island or shoal in between: the point itself when the way is clear, else the best
+ * waypoint on a ring round the obstacle (shortest total way with a clear first leg).
+ */
+function routeAround(race, b, P) {
+  const obs = obstaclesOf(race);
+  if (!obs.length) return P;
+  const blocking = obs.filter((o) => segHitsCircle(b.x, b.y, P.x, P.y, o));
+  if (!blocking.length) return P;
+  let best = null;
+  let bestCost = Infinity;
+  for (const o of blocking) {
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      const W = { x: o.x + Math.cos(a) * (o.r + 3), y: o.y + Math.sin(a) * (o.r + 3) };
+      if (obs.some((q) => (W.x - q.x) ** 2 + (W.y - q.y) ** 2 < q.r * q.r)) continue;
+      if (obs.some((q) => segHitsCircle(b.x, b.y, W.x, W.y, q))) continue;
+      const second = obs.some((q) => segHitsCircle(W.x, W.y, P.x, P.y, q)) ? 60 : 0;
+      const cost = Math.hypot(W.x - b.x, W.y - b.y) + Math.hypot(P.x - W.x, P.y - W.y) + second;
+      if (cost < bestCost) {
+        bestCost = cost;
+        best = W;
+      }
+    }
+  }
+  return best ?? P;
 }
 
 /** Would sailing `h` for `ahead` metres leave the course or run aground? */

@@ -1,0 +1,17 @@
+{
+  "name": "tack",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Top-down sailboat racing where the wind is the track.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "test": "node --test test/*.test.mjs",
+    "balance": "node scripts/balance.mjs",
+    "store": "node scripts/store.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
