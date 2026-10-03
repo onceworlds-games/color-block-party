@@ -32,6 +32,9 @@ export const BOT_NAMES = [
   'Jib Jameson', 'Tilly Tiller', 'Dot Davit', 'Morgan Mooring', 'Coral Keel', 'Iggy Isobar', 'Bess Beaufort',
 ];
 
+/** The brain sailing a boat: a rival skipper's, or an autopilot on a person's boat (tests, store art). */
+export const brainOf = (b) => b.bot?.brain ?? b.pilot?.brain ?? null;
+
 /** A brain for a bot boat. */
 export function makeBrain(seed, skill, persona) {
   const s = Math.max(0, Math.min(3, skill | 0));
@@ -63,8 +66,8 @@ const W2 = { vx: 0, vy: 0, ms: 0, kn: 0, shift: 0, gust: 1 };
 /** Every bot that is due thinks; then all keep steering toward their wanted heading every step (the helm does that). */
 export function thinkSkippers(race) {
   for (const b of race.boats) {
-    if (!b.bot || b.remote || b.retired || b.finished) continue;
-    const br = b.bot.brain;
+    if ((!b.bot && !b.pilot) || b.remote || b.retired || b.finished) continue;
+    const br = brainOf(b);
     if (!br) continue;
     if (race.t < br.next) continue;
     br.next = race.t + 0.2;
@@ -258,7 +261,7 @@ function planStart(race) {
   const c = race.course;
   windAt(race.wind, 0, 0, race.gunT, W2);
   const favRight = -W2.vx >= 0; // the wind comes from the right: the committee (right) end is further upwind
-  const bots = race.boats.filter((o) => o.bot?.brain && !o.remote).sort((p, q) => q.bot.brain.skill - p.bot.brain.skill || (p.id < q.id ? -1 : 1));
+  const bots = race.boats.filter((o) => brainOf(o) && !o.remote).sort((p, q) => brainOf(q).skill - brainOf(p).skill || (p.id < q.id ? -1 : 1));
   // Slots far enough apart that two starboard runs side by side don't touch.
   const gap = Math.max(8.5, (2 * c.halfLine - 8) / Math.max(1, race.boats.length));
   const slots = [];
@@ -266,7 +269,7 @@ function planStart(race) {
   const s55 = Math.sin(55 * DEG);
   const c55 = Math.cos(55 * DEG);
   bots.forEach((o, i) => {
-    const br = o.bot.brain;
+    const br = brainOf(o);
     const sk = SKILLS[br.skill];
     const pe = PERSONAS[br.persona];
     // Lesser skippers misjudge the favoured end now and then.
@@ -296,7 +299,7 @@ function planStart(race) {
  */
 function startHeading(race, b, wind, best) {
   const half = race.course.halfLine;
-  const br = b.bot.brain;
+  const br = brainOf(b);
   const from = Math.atan2(-wind.vy, -wind.vx);
   const spot = br.spot;
   const brg = Math.atan2(spot.y - 1 - b.y, spot.x - b.x);
@@ -752,7 +755,7 @@ function tackSafe(race, b, h, except = null) {
 export function placeFleet(race) {
   planStart(race);
   for (const b of race.boats) {
-    const br = b.bot?.brain;
+    const br = brainOf(b);
     if (!br?.home || b.remote) continue;
     windAt(race.wind, br.home.x, br.home.y, 0, W2);
     b.x = b.px = br.home.x;
