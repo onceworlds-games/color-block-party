@@ -13,7 +13,7 @@ export const SKILLS = [
   { id: 0, name: 'Deckhand', reaction: 0.5, noise: 4, look: 2, header: 12, confirm: 2, minLeg: 5, layErr: 14, startLate: 2.6, startErr: 1.6, angErr: 7, angBias: 4, trim: 0.745, respect: 0.7, hike: 0.3, clean: 0.3 },
   { id: 1, name: 'Mate', reaction: 0.35, noise: 3, look: 4, header: 8, confirm: 1.2, minLeg: 7, layErr: 8, startLate: 1.7, startErr: 0.9, angErr: 3.5, angBias: 2, trim: 0.86, respect: 0.88, hike: 0.6, clean: 0.65 },
   { id: 2, name: 'Skipper', reaction: 0.2, noise: 2, look: 7, header: 6, confirm: 0.8, minLeg: 8, layErr: 3.5, startLate: 1.0, startErr: 0.4, angErr: 1.5, angBias: 0.6, trim: 1, respect: 0.97, hike: 0.85, clean: 0.9 },
-  { id: 3, name: 'Legend', reaction: 0.1, noise: 1, look: 10, header: 5, confirm: 0.5, minLeg: 8, layErr: 1.5, startLate: 0.65, startErr: 0.18, angErr: 0.5, angBias: 0, trim: 1.016, respect: 1, hike: 1, clean: 1 },
+  { id: 3, name: 'Legend', reaction: 0.1, noise: 1, look: 10, header: 5, confirm: 0.5, minLeg: 8, layErr: 1.5, startLate: 0.65, startErr: 0.18, angErr: 0.5, angBias: 0, trim: 1.008, respect: 1, hike: 1, clean: 1 },
 ];
 
 export const PERSONAS = {
@@ -471,7 +471,8 @@ function beat(race, b, br, sk, pe, wind, best, P, dist) {
   const curOff = Math.abs(angDiff(headingFor(br.ewx, br.ewy, up, cur), brgP)) / DEG;
   const otherOff = Math.abs(angDiff(headingFor(br.ewx, br.ewy, up, -cur), brgP)) / DEG;
   // Headed against the mean wind (a veer heads starboard tack, a back heads port), for long enough: tack.
-  const headed = shiftOf(br) * cur;
+  // A veer (clockwise) lifts the starboard tack and heads the port one: headed is the shift against this tack.
+  const headed = -shiftOf(br) * cur;
   if (headed > sk.header) br.headT += 0.2;
   else br.headT = 0;
   if (ready && br.headT >= sk.confirm && otherOff < curOff + 8) return doTack(b, br, t, wind, up);
@@ -523,7 +524,8 @@ function run(race, b, br, sk, pe, wind, best, P, dist) {
   if (!onFavoured && offDown >= lay && since > 3) return doTack(b, br, t, wind, down, 9);
   if (onFavoured && offDown >= lay - 1) return toPoint(b, P, wind, best, Math.atan2(-wind.vy, -wind.vx));
   // Downwind a veer helps starboard and a back helps port: gybe when the current gybe is the one that lost out.
-  const lifted = -shiftOf(br) * cur;
+  // Downwind it is the other way round: a veer heads the starboard tack (the boat is turned away from the mark).
+  const lifted = shiftOf(br) * cur;
   if (lifted > sk.header * 1.3) br.headT += 0.2;
   else br.headT = 0;
   if (ready && br.headT >= sk.confirm * 1.5) return doTack(b, br, t, wind, down);

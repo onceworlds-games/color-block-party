@@ -699,9 +699,12 @@ addEventListener('keydown', (e) => {
 
 platform.on('pause', () => app.solo && setPaused(true));
 platform.on('resume', () => app.solo && setPaused(false));
+const syncMotion = () => document.documentElement.toggleAttribute('data-reduced', !!app.reduced);
+syncMotion();
 platform.onSettings(() => {
   app.quality = platform.quality;
   app.reduced = platform.reducedMotion;
+  syncMotion();
   view.resize();
 });
 

@@ -126,8 +126,10 @@ html, body {
 .waiting { font: italic 500 15px/1.3 var(--serif); color: var(--ink-soft); padding-top: 10px; }
 
 /* Results: the heading over the plotted race, the table as its legend. Career and small cards. */
-.legend { max-height: 100%; }
-.legend .table { margin-top: 10px; }
+/* The table scrolls inside the card; the reward and the button stay where a thumb finds them. */
+.legend { max-height: 100%; display: flex; flex-direction: column; }
+.legend .table { margin-top: 10px; flex: 1 1 auto; min-height: 88px; overflow-y: auto; }
+.legend .reward, .legend .medal, .legend .note, .legend .levelup, .legend .row { flex: none; }
 .career, .veil { align-items: center; justify-content: center; padding: 64px 16px 96px; }
 .veil { background: rgba(239, 230, 210, 0.55); }
 .card {
@@ -197,3 +199,5 @@ html, body {
 .enter .table li:nth-child(5) { animation-delay: 0.16s; }
 .enter .table li:nth-child(n + 6) { animation-delay: 0.2s; }
 @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .enter *, .enter { animation: none !important; } }
+[data-reduced] .btn { transition: none; }
+[data-reduced] .enter, [data-reduced] .enter * { animation: none !important; }

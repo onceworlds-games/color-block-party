@@ -80,7 +80,7 @@ export const CLASSES = {
   },
   cat: {
     id: 'cat', name: 'Catamaran', nogo: 34, downStretch: 1.25, windExp: 1.03, tauUp: 1.8, tauDown: 3.0, turn: 0.75,
-    tack: [0.42, 0.58], gybe: [0.2, 0.4], overpower: 0.08, plane: 0, planeFrom: 13, reach: 0.12, factor: 1.022,
+    tack: [0.42, 0.58], gybe: [0.2, 0.4], overpower: 0.08, plane: 0, planeFrom: 13, reach: 0.15, factor: 1.022,
   },
 };
 export const CLASS_IDS = ['dinghy', 'skiff', 'catboat', 'cat'];

@@ -121,3 +121,28 @@ test('every human has a sail number of their own, steady from race to race, and 
   const c = raceSetup({ fleet: 'six' }, 5, ['a', 'b', 'c'], { a: { num: 7 }, b: { num: 7 }, c: { num: 7 } });
   assert.equal(new Set(c.entries.slice(0, 3).map((e) => e.num)).size, 3);
 });
+
+test('a veer lifts the starboard tack and heads the port tack, and the helm cue and the skippers agree', async () => {
+  const { headingFor } = await import('../game/js/sim/boat.js');
+  const { makeLift, updateLift } = await import('../game/js/hints.js');
+  const DEG = Math.PI / 180;
+  const north = (h) => -Math.sin(h); // toward a mark straight upwind
+  const vmg = (shiftDeg, side) => {
+    const dir = Math.PI / 2 + shiftDeg * DEG; // windAt: a positive shift is a veer
+    return north(headingFor(Math.cos(dir) * 6, Math.sin(dir) * 6, 47, side));
+  };
+  assert.ok(vmg(10, 1) > vmg(0, 1) && vmg(10, -1) < vmg(0, -1), 'a veer: starboard gains, port loses');
+  assert.ok(vmg(-10, -1) > vmg(0, -1) && vmg(-10, 1) < vmg(0, 1), 'a back: port gains, starboard loses');
+  // The cue: settle on the mean, then veer 10 degrees for a while.
+  for (const [side, sign] of [[1, 1], [-1, -1]]) {
+    const L = makeLift();
+    for (let i = 0; i < 600; i++) updateLift(L, 0, side, 1 / 30);
+    for (let i = 0; i < 150; i++) updateLift(L, 10 * DEG, side, 1 / 30);
+    assert.ok(Math.sign(L.deg) === sign && Math.abs(L.deg) > 5, `side ${side}: ${L.deg}`);
+  }
+  // Headed for long enough (the hint's timer) on port when it veers.
+  const L = makeLift();
+  for (let i = 0; i < 600; i++) updateLift(L, 0, -1, 1 / 30);
+  for (let i = 0; i < 300; i++) updateLift(L, 12 * DEG, -1, 1 / 30);
+  assert.ok(L.headedT > 3, `headed for ${L.headedT} s`);
+});

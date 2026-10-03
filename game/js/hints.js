@@ -134,8 +134,9 @@ export function updateLift(L, shift, side, dt) {
   }
   L.now += (shift - L.now) * (1 - Math.exp(-dt / 2.2));
   L.mean += (shift - L.mean) * (1 - Math.exp(-dt / 40));
-  // A veer (clockwise) heads the starboard tack and lifts the port one.
-  L.deg = -((L.now - L.mean) * 180 / Math.PI) * side;
+  // A veer (clockwise) lifts the starboard tack and heads the port one (checked against the polar: the helm's heading
+  // turns with the wind, and toward the mark on starboard when it veers).
+  L.deg = ((L.now - L.mean) * 180 / Math.PI) * side;
   L.headedT = L.deg < -6 ? L.headedT + dt : 0;
   return L.deg;
 }
