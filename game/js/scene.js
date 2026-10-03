@@ -76,14 +76,14 @@ function drawTracks(view, sc, meId, reveal) {
     ctx.beginPath();
     ctx.moveTo(tr.pts[0], tr.pts[1]);
     for (let i = 1; i < n; i++) ctx.lineTo(tr.pts[2 * i], tr.pts[2 * i + 1]);
-    // A pale under-stroke keeps light colours legible on the paper.
-    ctx.globalAlpha = 0.55;
-    ctx.strokeStyle = PALETTE.paperLight;
-    ctx.lineWidth = (mine ? 5 : 3.6) / z;
+    // A dark under-stroke keeps every colour (the pale ones above all) legible on the washes.
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = '#0E2A3A';
+    ctx.lineWidth = (mine ? 5.4 : 4) / z;
     ctx.stroke();
-    ctx.globalAlpha = mine ? 1 : 0.82;
+    ctx.globalAlpha = mine ? 1 : 0.92;
     ctx.strokeStyle = color;
-    ctx.lineWidth = (mine ? 2.6 : 1.6) / z;
+    ctx.lineWidth = (mine ? 2.8 : 2) / z;
     ctx.stroke();
     if (reveal < 1 && n < tr.pts.length / 2) {
       ctx.beginPath();

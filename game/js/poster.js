@@ -10,6 +10,8 @@ import { makeSceneState, drawScene, recordTracks } from './scene.js';
 import { botEntries } from './sim/skippers.js';
 import { mulberry32 } from './sim/rng.js';
 import { makeRace } from './sim/race.js';
+import { readWind } from './sim/boat.js';
+import { windAt, windSample } from './sim/wind.js';
 import { drawFog } from './render/hud.js';
 
 const DEG = Math.PI / 180;
@@ -56,19 +58,8 @@ function raceScene(view, o) {
 }
 
 const SCENES = {
-  // The cover: the fleet rounding the windward mark, shadows hatched behind them, a gust on the water.
-  thumb1: (view) =>
-    raceScene(view, {
-      race: { seed: 56, courseId: 1, laps: 2, weather: 'moderate', rules: 'racing', entries: botEntries(56, 9, [3, 3, 2, 2, 2, 3, 2, 3, 2]), meId: null, preStart: 60, looks: liveryLooks(9) },
-      t: 149.8,
-      camera: (s) => {
-        const W = s.race.course.targets[1];
-        const near = s.race.boats.filter((b) => Math.hypot(b.x - W.x, b.y - W.y) < 34);
-        const cx = near.reduce((a, b) => a + b.x, 0) / Math.max(1, near.length);
-        const cy = near.reduce((a, b) => a + b.y, 0) / Math.max(1, near.length);
-        return { x: (cx + W.x) / 2 - 6, y: (cy + W.y) / 2 + 2, zoom: 20 };
-      },
-    }),
+  // The cover: the fleet at the windward mark, a gust darkening the water, shadows hatched behind the boats ahead.
+  thumb1: (view) => cover(view),
   // The start: ten boats on the line a breath before the gun, the committee boat flying its flag.
   thumb2: (view) =>
     raceScene(view, {
@@ -99,13 +90,13 @@ const SCENES = {
   // The beat as plotted: every boat's tacks up to the windward mark, inked in its sail's colour (the results view).
   thumb4: (view) =>
     raceScene(view, {
-      race: { seed: 32, courseId: 1, laps: 2, weather: 'shifty', rules: 'racing', entries: botEntries(32, 8, [3, 3, 2, 2, 3, 2, 3, 2]), meId: null, preStart: 60, looks: liveryLooks(8) },
-      t: 151.5,
+      race: { seed: 38, courseId: 1, laps: 2, weather: 'shifty', rules: 'racing', entries: botEntries(38, 8, [3, 3, 2, 2, 3, 2, 3, 2]), meId: null, preStart: 60, looks: liveryLooks(8) },
+      t: 193,
       plot: true,
       cones: 0,
       camera: (s) => {
         const W = s.race.course.targets[1];
-        return { x: W.x + 15, y: W.y + 31, zoom: 8 };
+        return { x: W.x + 3, y: W.y + 43, zoom: 7.4 };
       },
     }),
   // The liveries, burgees and wake styles side by side (not store art).
@@ -114,6 +105,85 @@ const SCENES = {
   boats: (view) => sheet(view),
   icon: (view) => icon(view),
 };
+
+const W0 = windSample();
+
+/**
+ * The cover, arranged by hand on the real race: boats are set where a good picture wants them (metres from the windward
+ * mark, east and south) and everything else (wind, shadows, sails, wakes, the washes) is the game's own drawing.
+ */
+function cover(view) {
+  const seed = 38;
+  const t = 168;
+  const entries = botEntries(seed, 8, [3, 3, 2, 3, 2, 3, 2, 3]);
+  const race = makeRace({ seed, courseId: 1, laps: 2, weather: 'moderate', rules: 'racing', entries, preStart: 60 });
+  const M = race.course.targets[1];
+  race.t = t;
+  // x, y from the mark; h degrees; v m/s; w turn rate (deg/s, negative turns to port); the sail, eased or trimmed.
+  const plan = [
+    { x: -5.2, y: 3.6, h: 163, v: 4.9, w: -34, hiking: false, heel: 0.35, livery: 0, pattern: 'band', num: 21 }, // rounding now, bearing away
+    { x: 6.8, y: 6.6, h: -137, v: 3.7, w: 0, hiking: true, heel: 0.6, livery: 1, pattern: 'plain', num: 14 }, // close-hauled, to the mark
+    { x: 9.2, y: 16.8, h: -137, v: 2.5, w: 0, hiking: true, heel: 0.5, livery: 2, pattern: 'stripes', num: 17 }, // in the shadow of the boat above
+    { x: 3.2, y: 8.8, h: -150, v: 4.1, w: -12, hiking: true, heel: 0.45, livery: 3, pattern: 'chevron', num: 23 }, // just short of the rounding
+    { x: -15.5, y: 10.5, h: 102, v: 5.4, w: 0, hiking: false, heel: 0.25, livery: 4, pattern: 'plain', num: 26 }, // running down, past the mark
+    { x: -7.6, y: 15.8, h: 118, v: 3.9, w: 0, hiking: false, heel: 0.25, livery: 8, pattern: 'dot', num: 29 }, // under the leader's lee
+    { x: 17.6, y: 4.2, h: -137, v: 3.8, w: 0, hiking: true, heel: 0.55, livery: 5, pattern: 'plain', num: 32 }, // clear air, further out
+    { x: 24.5, y: 12.5, h: -137, v: 3.6, w: 0, hiking: true, heel: 0.5, livery: 7, pattern: 'band', num: 35 }, // and one more, hardening up
+  ];
+  const sc = makeSceneState();
+  const place = (b, p, back = 0) => {
+    // Back along the path (the wake's history): the same speed and turn, run in reverse.
+    let x = M.x + p.x;
+    let y = M.y + p.y;
+    let h = p.h * DEG;
+    for (let k = 0; k < back; k++) {
+      h -= p.w * DEG * 0.12;
+      x -= Math.cos(h) * p.v * 0.12;
+      y -= Math.sin(h) * p.v * 0.12;
+    }
+    b.x = b.drawX = b.px = x;
+    b.y = b.drawY = b.py = y;
+    b.h = b.drawH = b.ph = h;
+  };
+  const boats = race.boats;
+  boats.forEach((b, i) => {
+    const p = plan[i];
+    b.livery = p.livery;
+    b.pattern = p.pattern;
+    b.num = p.num;
+    b.v = p.v;
+    b.hiking = p.hiking;
+    b.heel = p.heel;
+    b.alpha = 1;
+    b.flag = i === 0 ? 'pennant' : 'none';
+  });
+  // The wake: every 0.12 s along the path, oldest first.
+  for (let k = 22; k >= 0; k--) {
+    boats.forEach((b, i) => place(b, plan[i], k));
+    updateWakes(sc.wakes, boats, t - k * 0.12, false);
+  }
+  boats.forEach((b, i) => {
+    const p = plan[i];
+    place(b, p, 0);
+    windAt(race.wind, b.x, b.y, t, W0);
+    b.wx = W0.vx;
+    b.wy = W0.vy;
+    b.wkn = W0.kn;
+    readWind(b, W0.vx, W0.vy);
+    // Sails: eased when the wind is aft of the beam, flogging nowhere.
+    b.luff = 0;
+  });
+  const chart = buildChart(race);
+  const cam = view.cam;
+  cam.x = cam.tx = M.x + 5.4;
+  cam.y = cam.ty = M.y + 5.4;
+  cam.zoom = cam.tzoom = 23;
+  const air = makeAir(mulberry32(seed + 5));
+  for (let k = 0; k < 40; k++) {
+    sc.lastT = t - 1 / 30;
+    drawScene(view, sc, { race, meId: null }, { quality: 'high', reduced: false, touch: false, notice: null, now: t, bearing: 220, chart, air, hud: false, names: false, cones: 4, streaks: 130 });
+  }
+}
 
 /** The boat nearest the middle of the fleet in the channel (the fog scene's eye). */
 function fogFocus(s) {

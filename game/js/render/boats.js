@@ -542,22 +542,23 @@ export function drawShadow(view, b, strong) {
   ctx.lineTo(L, w);
   ctx.closePath();
   const g = ctx.createLinearGradient(0, 0, L, 0);
-  g.addColorStop(0, `rgba(30,42,51,${strong ? 0.1 : 0.06})`);
-  g.addColorStop(1, 'rgba(30,42,51,0)');
+  // Slowed air is calmer water: a pale wedge fading with distance, hatched in pale and ink so it reads on any depth.
+  g.addColorStop(0, `rgba(246,240,226,${strong ? 0.2 : 0.1})`);
+  g.addColorStop(1, 'rgba(246,240,226,0)');
   ctx.fillStyle = g;
   ctx.fill();
   ctx.clip();
-  // Fine hatching across the cone.
-  ctx.strokeStyle = `rgba(30,42,51,${strong ? 0.17 : 0.1})`;
-  ctx.lineWidth = 0.9 / z;
-  ctx.beginPath();
   const step = Math.max(1.6, 8 / z);
-  for (let x = 2; x < L; x += step) {
-    const f = 1 - x / L;
-    ctx.globalAlpha = 1;
-    ctx.moveTo(x, -w * (x / L));
-    ctx.lineTo(x + w * (x / L) * 0.6 * f + 0.6, w * (x / L));
+  for (const [color, off, width] of [[`rgba(246,240,226,${strong ? 0.5 : 0.3})`, 0, 1.1], [`rgba(14,42,58,${strong ? 0.26 : 0.14})`, 0.7 / z, 0.8]]) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width / z;
+    ctx.beginPath();
+    for (let x = 2; x < L; x += step) {
+      const f = 1 - x / L;
+      ctx.moveTo(x + off, -w * (x / L));
+      ctx.lineTo(x + w * (x / L) * 0.6 * f + 0.6 + off, w * (x / L));
+    }
+    ctx.stroke();
   }
-  ctx.stroke();
   ctx.restore();
 }
