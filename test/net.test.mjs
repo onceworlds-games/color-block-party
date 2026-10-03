@@ -188,3 +188,38 @@ test('a page drawing four frames a second still keeps pace with the room clock',
     assert.deepEqual(c.errors, []);
   }
 });
+
+test('someone who arrives mid-race watches: no boat of their own, no presence of their own, and still sees the results', () => {
+  const srv = makeServer({ seed: 7, settings: { course: 7, courseHi: 0, laps: 1, weather: 'fresh', fleet: 'six', rules: 'casual' } });
+  const cs = ['ann', 'bo'].map((id) => client(srv, id));
+  srv.start(1);
+  runUntil(srv, cs, () => false, 80000);
+  const late = client(srv, 'late');
+  cs.push(late);
+  frame(srv, cs);
+  assert.equal(late.room.spectating, true);
+  assert.equal(late.m.meId, null);
+  assert.equal(late.m.session.race.boats.length, cs[0].m.session.race.boats.length);
+  assert.ok(runUntil(srv, cs, () => cs.every((c) => c.m.record?.done), 12 * 60000), 'the race ended');
+  assert.equal(srv.players.get('late').presence, null, 'a watcher sends no boat');
+  assert.equal(late.m.record.res.length, cs[0].m.record.res.length);
+  for (const c of cs) assert.deepEqual(c.errors, []);
+});
+
+test('a sailor who leaves mid-race retires, disappears after fifteen seconds, and the race goes on without them', () => {
+  const srv = makeServer({ seed: 9, settings: { course: 7, courseHi: 0, laps: 1, weather: 'fresh', fleet: 'humans', rules: 'casual' } });
+  const cs = ['ann', 'bo', 'cy'].map((id) => client(srv, id));
+  srv.start(1);
+  runUntil(srv, cs, () => false, 75000);
+  srv.leave('cy');
+  const rest = cs.filter((c) => c.id !== 'cy');
+  runUntil(srv, rest, () => false, 2000);
+  const seen = rest[0].m.session.race.byId.get('cy');
+  assert.equal(seen.retired, true);
+  assert.equal(seen.hidden, false);
+  runUntil(srv, rest, () => false, 17000);
+  assert.equal(seen.hidden, true);
+  assert.ok(runUntil(srv, rest, () => rest.every((c) => c.m.record?.done), 12 * 60000), 'the race ended');
+  assert.ok(!rest[0].m.record.res.some((r) => r.id === 'cy'), 'the leaver is not in the results');
+  for (const c of rest) assert.deepEqual(c.errors, []);
+});
