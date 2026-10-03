@@ -298,7 +298,9 @@ export function drawMarkPointer(view, tg, me, name, safe) {
   let x = cx + dx * k;
   let y = cy + dy * k;
   // Keep clear of the platform's corner (top left), the clock (top centre) and the standings (top right).
-  if (y < 104) y = 104;
+  // (the notice sits under the clock: the pointer stays below it)
+  const top = view.w < 480 ? 192 : 136;
+  if (y < top) y = top;
   if (x > view.w - 220 && y < 210) y = 210;
   const a = Math.atan2(dy, dx);
   ctx.save();

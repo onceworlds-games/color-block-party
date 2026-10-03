@@ -57,12 +57,15 @@ export function clearUi() {
 // ------------------------------------------------------------------------------------------------ title
 
 export function showTitle(onSail, label = 'Sail') {
-  const wrap = el('div', 'screen title');
+  // Back into a race that is under way: just the button over the live water, not the whole title.
+  const back = label !== 'Sail';
+  const wrap = el('div', back ? 'screen title rejoin' : 'screen title');
   const mark = el('h1', 'wordmark', 'TACK');
   const go = button(label, onSail, 'primary big');
   // Enter does it too: say so where there is a keyboard.
   if (!platform.touch) go.append(el('kbd', '', 'Enter'));
-  wrap.append(mark, go);
+  if (back) wrap.append(go);
+  else wrap.append(mark, go);
   mount(wrap, 'title');
 }
 

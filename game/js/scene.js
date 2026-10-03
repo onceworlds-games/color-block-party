@@ -256,6 +256,9 @@ export function drawScene(view, sc, s, ui) {
       view.toScreen(o.drawX, o.drawY, TAGP);
       const ty = TAGP.y - Math.max(18, view.cam.zoom * 3.4);
       if ((TAGP.x < 190 && ty < 124) || (TAGP.x > view.w - 230 && ty < 150) || (Math.abs(TAGP.x - view.w / 2) < 90 && ty < 70)) continue;
+      // ...and from the wind rose (lower left) and the small chart (lower right) when they are up.
+      if (!ui.touch && (TAGP.x < 190 && ty > view.h - 160)) continue;
+      if (!ui.touch && view.w > 900 && TAGP.x > view.w - 200 && ty > view.h - 190) continue;
       drawTag(view, o, o.retired ? `${o.name} · retired` : o.name, false);
     }
   }

@@ -66,7 +66,7 @@ const SCENES = {
       race: { seed: 21, courseId: 1, laps: 2, weather: 'fresh', rules: 'racing', entries: botEntries(21, 10, [3, 3, 3, 2, 2, 2, 3, 2, 3, 2]), meId: null, preStart: 60, looks: liveryLooks(10) },
       t: 58.4,
       cones: 0,
-      camera: (s) => ({ x: s.race.course.halfLine * 0.36, y: 10.5, zoom: 18 }),
+      camera: (s) => ({ x: s.race.course.halfLine * 0.3, y: 11, zoom: 17.5 }),
     }),
   // A coastal course in fog: an island and the fleet loom out of the grey.
   thumb3: (view) =>

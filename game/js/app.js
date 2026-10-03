@@ -652,6 +652,7 @@ function beginSolo(so) {
   app.notices = makeNotices();
   app.lift = makeLift();
   app.stamp = null;
+  if (so.kind === 'lesson') notify(app.notices, performance.now() / 1000, 'Round the red mark', { sub: 'Then back across the line.', dur: 5, prio: 3 });
   app.uiKey = '';
   audio.unlock();
   audio.cue('ui');
