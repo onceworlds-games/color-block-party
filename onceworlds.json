@@ -1,34 +1,19 @@
 {
-  "slug": "tack",
-  "name": "Tack",
-  "description": "Top-down sailboat racing for up to ten, where the wind is the track and every sail casts a shadow.",
+  "slug": "color-block-party",
+  "name": "Color Block Party",
+  "description": "Run to the right color before the floor drops! Last one dancing wins.",
   "dir": "game",
-  "productionBranch": "main",
-  "genre": "Racing",
+  "genre": "Party",
   "icon": "store/icon.png",
-  "thumbnails": ["store/thumb-1.png", "store/thumb-2.png", "store/thumb-3.png", "store/thumb-4.png"],
+  "thumbnails": ["store/thumb-1.png", "store/thumb-2.png", "store/thumb-3.png"],
   "badges": [
-    { "id": "first-race", "name": "First Race", "description": "Finish a race.", "icon": "store/badges/first-race.png" },
-    { "id": "clean-tack", "name": "Clean Tack", "description": "Ten clean tacks in one race.", "icon": "store/badges/clean-tack.png" },
-    { "id": "wind-thief", "name": "Wind Thief", "description": "Slow three boats with your wind shadow in one race.", "icon": "store/badges/wind-thief.png" },
-    { "id": "photo-finish", "name": "Photo Finish", "description": "Win a fleet race by under half a second.", "icon": "store/badges/photo-finish.png" },
-    { "id": "perfect-start", "name": "Perfect Start", "description": "Cross the line within half a second of the gun at full speed.", "icon": "store/badges/perfect-start.png" },
-    { "id": "no-fouls", "name": "No Fouls", "description": "Finish a racing-rules race without a foul.", "icon": "store/badges/no-fouls.png" },
-    { "id": "gust-rider", "name": "Gust Rider", "description": "Sail a whole minute in gusts in one race.", "icon": "store/badges/gust-rider.png" },
-    { "id": "ghost-buster", "name": "Ghost Buster", "description": "Beat your own ghost in a time trial.", "icon": "store/badges/ghost-buster.png" },
-    { "id": "par-excellence", "name": "Par Excellence", "description": "A gold medal in a time trial.", "icon": "store/badges/par-excellence.png" },
-    { "id": "cup-winner", "name": "Cup Winner", "description": "Win a career cup.", "icon": "store/badges/cup-winner.png" },
-    { "id": "every-weather", "name": "Every Weather", "description": "Race in all six weathers.", "icon": "store/badges/every-weather.png" },
-    { "id": "captain", "name": "Captain", "description": "Reach Captain 10.", "icon": "store/badges/captain.png" }
+    { "id": "first-win", "name": "First Win", "description": "Win a match.", "icon": "store/badge-first-win.png" },
+    { "id": "survivor", "name": "Survivor", "description": "Survive 15 drops in one round.", "icon": "store/badge-survivor.png" },
+    { "id": "untouchable", "name": "Untouchable", "description": "Win a round without being pushed.", "icon": "store/badge-untouchable.png" },
+    { "id": "party-animal", "name": "Party Animal", "description": "Play 10 matches.", "icon": "store/badge-party-animal.png" }
   ],
   "controls": [
-    { "keys": ["A", "D"], "action": "Steer (or the arrow keys)" },
-    { "keys": ["A", "D"], "action": "Press again in the groove: steer past" },
-    { "keys": ["Space"], "action": "Tack or gybe" },
-    { "keys": ["Shift", "H"], "action": "Hike out (hold)" },
-    { "keys": ["Tab"], "action": "Chart of the whole course (hold)" },
-    { "keys": ["[", "]"], "action": "Zoom (or the mouse wheel)" },
-    { "keys": ["Touch"], "action": "Stick steers; Tack and Hike buttons" },
-    { "keys": ["Gamepad"], "action": "Stick steers, A tacks, B or RT hikes" }
+    { "keys": ["W", "A", "S", "D"], "action": "Move (or the arrow keys)" },
+    { "keys": ["Space"], "action": "Push" }
   ]
 }
