@@ -1,225 +1,319 @@
-// Several pages racing through a stand-in room: everyone builds the same race, sees everyone else, the host's rival
-// skippers reach every page, a reload puts a boat back where it was, a new host carries the skippers on, and the
-// results agree. No browser: the match controller is plain code.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeServer } from './fakeroom.mjs';
-import { makeMatch, buildMatch, tickMatch, onMatchState, dropMatch } from '../game/js/match.js';
-import { makeBrain } from '../game/js/sim/skippers.js';
-import { applyBoatPresence, readBots, readRecord, mshort } from '../game/js/net.js';
-import { raceSetup } from '../game/js/sim/setup.js';
+import { createNet, makeStandalone, JOIN } from '../game/net.js';
+import { isBotId } from '../game/engine.js';
+import { MAX_DANCERS, SETTINGS, TABLE, timeline } from '../game/rules.js';
 
-const LOOK = { livery: 1, pattern: 'plain', cls: 'dinghy', num: 7, name: 0 };
+const DT_MS = 1000 / 60;
 
-function client(srv, id) {
-  const room = srv.join(id);
-  const m = makeMatch();
-  room.on('state', (k, v) => onMatchState(m, k, v));
-  return { id, room, m, errors: [] };
+/** Just enough of a Room to run a page's net layer in node. */
+class FakeRoom {
+  constructor(meId, hostId, participants, startedAt = 0) {
+    this.listeners = new Map();
+    this.me = { id: meId, name: meId, presence: null };
+    this.players = new Map(participants.map((id) => [id, id === meId ? this.me : { id, name: id, presence: null, connected: true }]));
+    this.host = hostId;
+    this.state = {};
+    this.closed = false;
+    this.connected = true;
+    this.clockMs = 0;
+    this.sent = [];
+    this.ended = 0;
+    this.writes = [];
+    this.settings = { rounds: 3, speed: 'normal' };
+    this.match = { phase: 'playing', id: 'M1', seed: 77, participants, startedAt };
+  }
+  get isHost() {
+    return this.connected && this.host === this.me.id;
+  }
+  get running() {
+    return this.match.phase === 'playing' && !this.match.paused;
+  }
+  matchNow() {
+    return this.match.phase === 'playing' ? this.clockMs - this.match.startedAt : 0;
+  }
+  on(ev, fn) {
+    if (!this.listeners.has(ev)) this.listeners.set(ev, new Set());
+    this.listeners.get(ev).add(fn);
+  }
+  emit(ev, ...args) {
+    for (const fn of this.listeners.get(ev) ?? []) fn(...args);
+  }
+  setState(k, v) {
+    this.writes.push(k);
+    if (v == null) delete this.state[k];
+    else this.state[k] = v;
+  }
+  send(d, o) {
+    this.sent.push({ d, to: o?.to });
+  }
+  endMatch() {
+    this.ended++;
+  }
 }
 
-function rejoin(srv, c) {
-  srv.drop(c.id);
-  const room = srv.join(c.id);
-  c.room = room;
-  c.m = makeMatch(); // a fresh page knows nothing
-  room.on('state', (k, v) => onMatchState(c.m, k, v));
+const ow = { now: () => 0 };
+
+function host(participants = ['h', 'p2']) {
+  const room = new FakeRoom('h', 'h', participants);
+  const knocks = [];
+  ow.now = () => room.clockMs;
+  const net = createNet(ow, room, { onKnock: (dx, dy, by) => knocks.push({ dx, dy, by }) });
+  const advance = (ms) => {
+    for (let t = 0; t < ms; t += DT_MS) {
+      room.clockMs += DT_MS;
+      net.hostTick();
+      net.sync();
+    }
+  };
+  return { room, net, knocks, advance };
 }
 
-/** One frame for every page still open: build the race when a match is on, sail it (on autopilot). */
-function frame(srv, clients, ms = 50) {
-  srv.tick(ms);
-  for (const c of clients) {
-    if (!srv.rooms.has(c.id)) continue;
-    const room = c.room;
-    try {
-      if (room.match.phase === 'playing' && room.match.id) {
-        if (c.m.mid !== room.match.id) {
-          buildMatch(c.m, room, { names: (x) => x.toUpperCase(), checkpoint: null });
-          const mine = c.m.meId ? c.m.session.race.byId.get(c.m.meId) : null;
-          if (mine) mine.pilot = { brain: makeBrain(c.id.length * 97 + 3, 2, 'textbook') };
-        }
-        tickMatch(c.m, room, null, LOOK, ms / 1000, srv.now);
-      } else if (c.m.mid) dropMatch(c.m);
-    } catch (e) {
-      c.errors.push(e.stack ?? String(e));
+test('the host writes the record and the bots, and the page reads them back checked', () => {
+  const { room, net, advance } = host();
+  advance(500);
+  const g = net.g();
+  assert.ok(g, 'a record');
+  assert.equal(g.mid, 'M1');
+  assert.deepEqual(g.ids.slice(0, 2), ['h', 'p2']);
+  assert.equal(g.ids.length, TABLE);
+  assert.ok(g.ids.slice(2).every(isBotId));
+  assert.equal(g.by, 'h');
+  assert.equal(g.rounds, 3);
+  assert.equal(g.round, 1);
+  assert.equal(g.phase, 'step');
+  assert.ok(Object.keys(g.bn).length === 6 && Object.values(g.bn).every((n) => typeof n === 'string'));
+  assert.equal(net.g(), g, 'the same object until something changes');
+  assert.ok(room.state.b && room.state.b.rid === g.rid && room.state.b.p.length === 6);
+  assert.ok(room.state.b.p.every((row) => row.length === 6 && row.every(Number.isFinite)));
+  JSON.stringify(room.state);
+  // the bots are drawn from the host's own bodies
+  const v = { x: 0, y: 0, vx: 0, vy: 0, ang: 0, fl: 0 };
+  assert.ok(net.botView(g, 'bot1', 0, v));
+  assert.ok(Number.isFinite(v.x) && Number.isFinite(v.y));
+  assert.equal(net.currentRid(), g.rid);
+});
+
+test('a whole match through the host\'s page: people judged from their messages and presence, the match ended once', () => {
+  const { room, net, advance } = host();
+  const p2 = room.players.get('p2');
+  let guard = 0;
+  let sawFinal = false;
+  while (room.ended === 0 && guard++ < 60 * 60 * 15) {
+    advance(1000 / 60);
+    const g = net.g();
+    // the second person stands still at their spawn, publishing presence; the host's own person too
+    if (g) {
+      p2.presence = { x: 6, y: 4, vx: 0, vy: 0, a: 0, ps: false, kn: false, gh: false, f: 0, pc: 2, rn: g.round };
+      room.me.presence = { x: 6, y: 5, rn: g.round };
+      net.local.x = 6;
+      net.local.y = 5;
+      if (g.phase === 'final') sawFinal = true;
     }
   }
-}
+  assert.ok(sawFinal);
+  assert.equal(room.ended, 1, 'the match is ended once, by the host');
+  const g = net.g();
+  assert.equal(g.phase, 'final');
+  assert.equal(g.pu.p2, 2, 'pushes landed come from presence');
+  assert.ok(g.ids.every((id) => typeof g.scores[id] === 'number'));
+});
 
-function runUntil(srv, clients, cond, maxMs) {
-  const end = srv.now + maxMs;
-  while (srv.now < end) {
-    frame(srv, clients);
-    if (cond()) return true;
+test('messages are checked: a verdict for the wrong round or step is ignored, the right one counts', () => {
+  const { room, net, advance } = host();
+  advance(300);
+  const g = net.g();
+  const engine = net.engine;
+  assert.ok(engine);
+  room.emit('message', { t: 'fell', rid: 'other.1', step: g.step }, { id: 'p2' }, 0);
+  room.emit('message', { t: 'fell', rid: g.rid, step: g.step + 5 }, { id: 'p2' }, 0);
+  room.emit('message', { t: 'fell', rid: g.rid, step: 'x' }, { id: 'p2' }, 0);
+  room.emit('message', { t: 'fell', rid: g.rid, step: g.step }, { id: 'bot1' }, 0);
+  room.emit('message', { t: 'fell', rid: g.rid, step: g.step }, { id: 'nobody' }, 0);
+  room.emit('message', null, { id: 'p2' }, 0);
+  room.emit('message', 'fell', { id: 'p2' }, 0);
+  assert.deepEqual(engine.reported, {});
+  room.emit('message', { t: 'fell', rid: g.rid, step: g.step }, { id: 'p2' }, 0);
+  assert.deepEqual(engine.reported, { p2: g.step });
+});
+
+test('shoves: validated, recent, and only from somebody in the match', () => {
+  const { room, net, knocks, advance } = host();
+  advance(300);
+  const g = net.g();
+  const send = (d, from, at = room.clockMs) => room.emit('message', d, from, at);
+  send({ t: 'push', rid: g.rid, dx: 1, dy: 0 }, { id: 'p2' });
+  assert.equal(knocks.length, 1, 'a shove from a player in the round lands');
+  send({ t: 'push', rid: 'nope', dx: 1, dy: 0 }, { id: 'p2' });
+  send({ t: 'push', rid: g.rid, dx: NaN, dy: 0 }, { id: 'p2' });
+  send({ t: 'push', rid: g.rid, dx: 40, dy: 0 }, { id: 'p2' });
+  send({ t: 'push', rid: g.rid, dx: 1, dy: 0 }, { id: 'stranger' });
+  send({ t: 'push', rid: g.rid, dx: 1, dy: 0 }, { id: 'p2' }, room.clockMs - 900);
+  send({ t: 'push', rid: g.rid, dx: 1, dy: 0, by: 'bot2' }, { id: 'p2' });
+  assert.equal(knocks.length, 1, 'none of those land');
+  // a person shoving a bot reaches the host's body for it
+  const bot = net.engine.bots.get('bot3');
+  net.engine.bots.get('bot3').c.x = 6;
+  net.engine.bots.get('bot3').c.y = 4;
+  room.players.get('p2').presence = { x: 5.4, y: 4, rn: g.round };
+  send({ t: 'push', rid: g.rid, bot: 'bot3', dx: 1, dy: 0 }, { id: 'p2', presence: room.players.get('p2').presence });
+  assert.ok(bot.c.knockT > 0, 'the bot was knocked');
+  const far = net.engine.bots.get('bot4');
+  far.c.x = 10;
+  far.c.y = 7;
+  send({ t: 'push', rid: g.rid, bot: 'bot4', dx: 1, dy: 0 }, { id: 'p2', presence: { x: 2, y: 2 } });
+  assert.equal(far.c.knockT, 0, 'not from across the floor');
+  // your own shoves: on a bot, straight to the host's body; on a person, a message to them
+  net.push('bot5', 1, 0);
+  net.push('p2', 1, 0);
+  assert.deepEqual(room.sent.at(-1).d, { t: 'push', rid: g.rid, dx: 1, dy: 0 });
+  assert.equal(room.sent.at(-1).to, 'p2');
+});
+
+test('on a guest\'s page a bot\'s shove counts only when the host sends it', () => {
+  const { room: hostRoom, advance } = host();
+  advance(300);
+  const room = new FakeRoom('p2', 'h', ['h', 'p2']);
+  const knocks = [];
+  ow.now = () => room.clockMs;
+  createNet(ow, room, { onKnock: (dx, dy, by) => knocks.push(by) });
+  room.state.g = JSON.parse(JSON.stringify(hostRoom.state.g));
+  room.clockMs = hostRoom.clockMs;
+  const rid = room.state.g.rid;
+  room.emit('message', { t: 'push', rid, dx: 1, dy: 0, by: 'bot2' }, { id: 'h' }, room.clockMs);
+  assert.deepEqual(knocks, ['bot2']);
+  room.emit('message', { t: 'push', rid, dx: 1, dy: 0, by: 'bot2' }, { id: 'h2' }, room.clockMs);
+  room.emit('message', { t: 'push', rid, dx: 1, dy: 0, by: 'zed' }, { id: 'h' }, room.clockMs);
+  room.emit('message', { t: 'push', rid, dx: 1, dy: 0, by: 'bot99' }, { id: 'h' }, room.clockMs);
+  assert.deepEqual(knocks, ['bot2'], 'not from other players, not from ids that are not bots, not from bots that are not in the match');
+});
+
+test('the lobby has its own round id for shoves', () => {
+  const { room, net, knocks } = host();
+  room.match = { phase: 'lobby' };
+  assert.equal(net.currentRid(), 'lobby');
+  room.emit('message', { t: 'push', rid: 'lobby', dx: 1, dy: 0 }, { id: 'p2' }, 0);
+  assert.equal(knocks.length, 1);
+  assert.equal(net.g(), null);
+});
+
+test('everyone else draws the same record, and the bots between the host\'s snapshots', () => {
+  const { room: hostRoom, net: hostNet, advance } = host();
+  advance(1500);
+  const guestRoom = new FakeRoom('p2', 'h', ['h', 'p2']);
+  const guest = createNet(ow, guestRoom, { onKnock() {} });
+  const relay = () => {
+    guestRoom.state.g = JSON.parse(JSON.stringify(hostRoom.state.g));
+    guestRoom.state.b = JSON.parse(JSON.stringify(hostRoom.state.b));
+  };
+  relay();
+  guestRoom.clockMs = hostRoom.clockMs;
+  guest.sync();
+  const g = guest.g();
+  assert.ok(g);
+  assert.deepEqual(g.ids, hostNet.g().ids);
+  assert.equal(guest.engine, null, 'only the host runs the rules');
+  // two snapshots, then ask for the middle
+  advance(100);
+  relay();
+  guest.sync();
+  const b = hostRoom.state.b;
+  const v = { x: 0, y: 0, vx: 0, vy: 0, ang: 0, fl: 0 };
+  assert.ok(guest.botView(g, 'bot2', b.t - 40, v));
+  assert.ok(Number.isFinite(v.x) && v.x >= 0 && v.x <= 12);
+  assert.ok(!guest.botView(g, 'p2', b.t, v), 'people are not bots');
+  assert.ok(!guest.botView(g, 'bot99', b.t, v));
+  assert.equal(guest.name('bot2', g), g.bn.bot2);
+  assert.equal(guest.name('h', g), 'h');
+});
+
+test('a record from another match, or a broken one, is nothing; numbers are held in range', () => {
+  const { room, net, advance } = host();
+  advance(100);
+  const good = room.state.g;
+  room.state.g = { ...good, mid: 'M0' };
+  assert.equal(net.g(), null);
+  room.state.g = { ...good, ids: 'oops' };
+  assert.equal(net.g(), null);
+  room.state.g = { ...good, phase: 'dance' };
+  assert.equal(net.g(), null);
+  room.state.g = null;
+  assert.equal(net.g(), null);
+  room.state.g = { ...good, step: -4, scores: { h: 1e9, p2: 'x', bot1: NaN }, out: { h: 7.4 }, win: ['h', 'ghost'], rounds: 99, aw: { push: 'ghost', lucky: 'h' }, fa: 'soon' };
+  const g = net.g();
+  assert.ok(g);
+  assert.equal(g.step, 1);
+  assert.deepEqual(g.scores, { h: 9999 });
+  assert.deepEqual(g.out, { h: 7 });
+  assert.deepEqual(g.win, ['h']);
+  assert.equal(g.rounds, 9);
+  assert.deepEqual(g.aw, { push: null, lucky: 'h' });
+  assert.equal(g.fa, 0);
+});
+
+test('a new host takes over from the room\'s copy and carries on', () => {
+  const { room: oldRoom, net: oldNet, advance } = host();
+  advance(2500);
+  const gOld = oldNet.g();
+  const newRoom = new FakeRoom('p2', 'p2', ['h', 'p2']);
+  newRoom.state.g = JSON.parse(JSON.stringify(oldRoom.state.g));
+  newRoom.state.b = JSON.parse(JSON.stringify(oldRoom.state.b));
+  newRoom.clockMs = oldRoom.clockMs;
+  ow.now = () => newRoom.clockMs;
+  const net = createNet(ow, newRoom, { onKnock() {} });
+  for (let t = 0; t < 600; t += DT_MS) {
+    newRoom.clockMs += DT_MS;
+    net.hostTick();
   }
-  return false;
-}
-
-test('three pages race together: one race, everyone visible, skippers mirrored, results agreed', () => {
-  const srv = makeServer({ seed: 5, settings: { course: 7, courseHi: 0, laps: 1, weather: 'moderate', fleet: 'six', rules: 'casual' } });
-  const cs = ['ann', 'bo', 'cy'].map((id) => client(srv, id));
-  srv.start(1);
-  frame(srv, cs);
-  const setups = cs.map((c) => c.m.setup);
-  for (const s of setups) {
-    assert.equal(s.courseId, 7);
-    assert.deepEqual(s.entries.map((e) => e.id), setups[0].entries.map((e) => e.id));
-  }
-  assert.equal(setups[0].entries.filter((e) => e.bot).length, 3, 'filled to six with three skippers');
-  // Sail for a while: other boats move on every page, and the skippers reach the non-hosts.
-  runUntil(srv, cs, () => false, 90000);
-  const host = cs.find((c) => c.room.isHost);
-  const other = cs.find((c) => !c.room.isHost);
-  const hb = host.m.session.race.byId.get('bot1');
-  const ob = other.m.session.race.byId.get('bot1');
-  assert.ok(Math.hypot(hb.x - ob.x, hb.y - ob.y) < 8, `bot1 agrees: ${hb.x},${hb.y} vs ${ob.x},${ob.y}`);
-  const annOnBo = cs[1].m.session.race.byId.get('ann');
-  const annOwn = cs[0].m.session.race.byId.get('ann');
-  assert.ok(Math.hypot(annOnBo.x - annOwn.x, annOnBo.y - annOwn.y) < 8, 'ann is where her page says she is');
-  // To the finish and the results.
-  assert.ok(runUntil(srv, cs, () => cs.every((c) => c.m.record?.done), 12 * 60000), 'the race ended');
-  const rows = cs.map((c) => JSON.stringify(c.m.record.res));
-  assert.equal(rows[0], rows[1]);
-  assert.equal(rows[1], rows[2]);
-  const res = cs[0].m.record.res;
-  assert.equal(res.length, 6);
-  assert.ok(res.filter((r) => r.t !== null).length >= 4, 'most of the fleet finished');
-  // Places are 1..n, finishers sorted by time.
-  const fins = res.filter((r) => r.t !== null);
-  for (let i = 1; i < fins.length; i++) assert.ok(fins[i].t >= fins[i - 1].t);
-  // The host ends the match after the results: back to the harbour.
-  assert.ok(runUntil(srv, cs, () => srv.match.phase === 'lobby', 60000), 'the match ended');
-  for (const c of cs) assert.deepEqual(c.errors, []);
+  const g = net.g();
+  assert.ok(g);
+  assert.equal(g.by, 'p2', 'the new host wrote itself in');
+  assert.equal(g.round, gOld.round, 'no reset');
+  assert.ok(g.step >= gOld.step);
+  assert.ok(net.engine);
+  // losing the role drops the engine
+  newRoom.host = 'h';
+  newRoom.emit('host', 'h');
+  assert.equal(net.engine, null);
+  net.destroy();
 });
 
-test('a reload puts the boat back where it was; the host leaving hands the skippers on; three matches in a row', () => {
-  const srv = makeServer({ seed: 11, settings: { course: 7, courseHi: 0, laps: 1, weather: 'shifty', fleet: 'six', rules: 'racing' } });
-  const cs = ['ann', 'bo', 'cy'].map((id) => client(srv, id));
-  for (let n = 1; n <= 3; n++) {
-    srv.start(n);
-    runUntil(srv, cs.filter((c) => srv.players.has(c.id)), () => false, 70000);
-    // Reload bo mid-race.
-    const bo = cs[1];
-    const before = bo.m.session.race.byId.get('bo');
-    const pos = { x: before.x, y: before.y, pi: before.pi };
-    rejoin(srv, bo);
-    frame(srv, cs);
-    const after = bo.m.session.race.byId.get('bo');
-    assert.ok(Math.hypot(after.x - pos.x, after.y - pos.y) < 6, `bo restored near ${pos.x},${pos.y}: ${after.x},${after.y}`);
-    assert.equal(after.pi, pos.pi);
-    assert.equal(bo.m.mid, srv.match.id);
-    // The host's page drops mid-race (match 2): another page takes the skippers on.
-    if (n === 2) {
-      const hostC = cs.find((c) => c.room.isHost);
-      const b1Before = { ...hostC.m.session.race.byId.get('bot1') };
-      srv.drop(hostC.id);
-      runUntil(srv, cs, () => false, 20000);
-      const newHost = cs.find((c) => srv.rooms.has(c.id) && c.room.isHost);
-      assert.ok(newHost && newHost !== hostC, 'a new host');
-      const b1 = newHost.m.session.race.byId.get('bot1');
-      assert.equal(b1.remote, false, 'the new host sails the skippers');
-      assert.ok(b1.finished || Math.hypot(b1.x - b1Before.x, b1.y - b1Before.y) > 5, 'and they keep sailing');
-      // The dropped page comes back as the same player.
-      rejoin(srv, hostC);
-    }
-    assert.ok(runUntil(srv, cs, () => srv.match.phase === 'lobby', 15 * 60000), `match ${n} ran to the end`);
-    for (const c of cs) {
-      frame(srv, cs);
-      assert.equal(c.m.mid, null, 'nothing left over in the harbour');
-    }
-  }
-  assert.equal(srv.ended, 3);
-  for (const c of cs) assert.deepEqual(c.errors, []);
+test('a paused match stands still, a lost connection hands the role away', () => {
+  const { room, net, advance } = host();
+  advance(400);
+  const rev = net.engine.rev;
+  const now = room.matchNow();
+  room.match = { ...room.match, paused: { since: room.clockMs } };
+  for (let i = 0; i < 30; i++) net.hostTick();
+  assert.equal(net.engine.rev, rev);
+  assert.ok(now > 0);
+  room.match = { ...room.match, paused: undefined };
+  room.connected = false;
+  net.hostTick();
+  assert.equal(net.engine, null);
 });
 
-test('presence and snapshots from a lying page are checked before use', () => {
-  const srv = makeServer({ seed: 3, settings: { course: 1, fleet: 'six' } });
-  const a = client(srv, 'a');
-  srv.start(1);
-  frame(srv, [a]);
-  const race = a.m.session.race;
-  const b = race.boats[1];
-  const x0 = b.x;
-  for (const bad of [null, 5, 'x', { s: 'r', m: 'nope' }, { s: 'r', m: mshort(srv.match.id), x: NaN, y: Infinity, h: 'a', v: 1e9, pi: -4 }]) {
-    applyBoatPresence(b, bad, null, srv.match.id, race);
-    assert.ok(Number.isFinite(b.x) && Number.isFinite(b.y) && Number.isFinite(b.h));
-    assert.ok(b.v >= 0 && b.v <= 15 && b.pi >= 0);
-  }
-  void x0;
-  assert.equal(readBots({ m: mshort(srv.match.id), t: 1, b: [[1, 2]] }, srv.match.id, 5), null);
-  assert.equal(readBots({ m: 'other', t: 1, b: [] }, srv.match.id, 0), null);
-  assert.equal(readRecord({ m: 'old' }, srv.match.id), null);
-  const r = readRecord({ m: mshort(srv.match.id), fin: { x: -5, y: 'a', z: 40.5 }, done: 'yes' }, srv.match.id);
-  assert.deepEqual(r.fin, { z: 40.5 });
-  assert.equal(r.done, false);
-});
-
-test('a public server goes back to the harbour once every sailor has tapped Harbour, not before', () => {
-  const srv = makeServer({ seed: 5, settings: { course: 7, courseHi: 0, laps: 1, weather: 'fresh', fleet: 'humans', rules: 'casual' } });
-  const cs = ['ann', 'bo', 'cy'].map((id) => client(srv, id));
-  srv.start(1);
-  assert.ok(runUntil(srv, cs, () => cs.every((c) => c.m.record?.done), 12 * 60000), 'the race ended');
-  // Two have tapped; the third is still reading: the host waits.
-  cs[0].m.back = true;
-  cs[1].m.back = true;
-  assert.ok(!runUntil(srv, cs, () => srv.match.phase === 'lobby', 15000), 'one sailor still reading: no early end');
-  cs[2].m.back = true;
-  assert.ok(runUntil(srv, cs, () => srv.match.phase === 'lobby', 8000), 'all tapped: back in a few seconds');
-  for (const c of cs) assert.deepEqual(c.errors, []);
-});
-
-test('a lone sailor with rival skippers gets a shorter pre-start; two or more get the full minute', () => {
-  const one = raceSetup({ fleet: 'six' }, 9, ['ann'], {});
-  const two = raceSetup({ fleet: 'six' }, 9, ['ann', 'bo'], {});
-  assert.equal(one.preStart, 45);
-  assert.equal(two.preStart, 60);
-});
-
-test('a page drawing four frames a second still keeps pace with the room clock', () => {
-  const srv = makeServer({ seed: 5, settings: { course: 7, courseHi: 0, laps: 1, weather: 'fresh', fleet: 'six', rules: 'casual' } });
-  const cs = ['ann', 'bo'].map((id) => client(srv, id));
-  srv.start(1);
-  runUntil(srv, cs, () => false, 90000);
-  for (let i = 0; i < 240; i++) frame(srv, cs, 250); // a minute of quarter-second frames
-  for (const c of cs) {
-    const behind = c.room.matchNow() / 1000 - c.m.session.simT;
-    assert.ok(behind < 1.5, `${c.id} is ${behind.toFixed(1)} s behind the room's clock`);
-    assert.deepEqual(c.errors, []);
-  }
-});
-
-test('someone who arrives mid-race watches: no boat of their own, no presence of their own, and still sees the results', () => {
-  const srv = makeServer({ seed: 7, settings: { course: 7, courseHi: 0, laps: 1, weather: 'fresh', fleet: 'six', rules: 'casual' } });
-  const cs = ['ann', 'bo'].map((id) => client(srv, id));
-  srv.start(1);
-  runUntil(srv, cs, () => false, 80000);
-  const late = client(srv, 'late');
-  cs.push(late);
-  frame(srv, cs);
-  assert.equal(late.room.spectating, true);
-  assert.equal(late.m.meId, null);
-  assert.equal(late.m.session.race.boats.length, cs[0].m.session.race.boats.length);
-  assert.ok(runUntil(srv, cs, () => cs.every((c) => c.m.record?.done), 12 * 60000), 'the race ended');
-  assert.equal(srv.players.get('late').presence, null, 'a watcher sends no boat');
-  assert.equal(late.m.record.res.length, cs[0].m.record.res.length);
-  for (const c of cs) assert.deepEqual(c.errors, []);
-});
-
-test('a sailor who leaves mid-race retires, disappears after fifteen seconds, and the race goes on without them', () => {
-  const srv = makeServer({ seed: 9, settings: { course: 7, courseHi: 0, laps: 1, weather: 'fresh', fleet: 'humans', rules: 'casual' } });
-  const cs = ['ann', 'bo', 'cy'].map((id) => client(srv, id));
-  srv.start(1);
-  runUntil(srv, cs, () => false, 75000);
-  srv.leave('cy');
-  const rest = cs.filter((c) => c.id !== 'cy');
-  runUntil(srv, rest, () => false, 2000);
-  const seen = rest[0].m.session.race.byId.get('cy');
-  assert.equal(seen.retired, true);
-  assert.equal(seen.hidden, false);
-  runUntil(srv, rest, () => false, 17000);
-  assert.equal(seen.hidden, true);
-  assert.ok(runUntil(srv, rest, () => rest.every((c) => c.m.record?.done), 12 * 60000), 'the race ended');
-  assert.ok(!rest[0].m.record.res.some((r) => r.id === 'cy'), 'the leaver is not in the results');
-  for (const c of rest) assert.deepEqual(c.errors, []);
+test('the stand-in room works on its own: ready, a countdown, a match, back to the lobby', async () => {
+  const sa = makeStandalone();
+  const room = await sa.rooms.join(JOIN);
+  assert.equal(room.match.phase, 'lobby');
+  assert.equal(room.isHost, true);
+  assert.deepEqual(room.settings, { rounds: 3, speed: 'normal' });
+  room.setSetting('rounds', 5);
+  assert.equal(room.settings.rounds, 5);
+  let started = false;
+  room.on('matchstart', () => (started = true));
+  room.setReady(true);
+  assert.equal(room.match.phase, 'starting');
+  await new Promise((r) => setTimeout(r, 3100));
+  assert.ok(started);
+  assert.equal(room.match.phase, 'playing');
+  assert.ok(room.matchNow() >= 0);
+  room.endMatch();
+  assert.equal(room.match.phase, 'lobby');
+  assert.equal(JOIN.maxPlayers, MAX_DANCERS);
+  assert.equal(JOIN.minPlayers, 1);
+  assert.equal(JOIN.lobby, 'bar');
+  assert.deepEqual(JOIN.settings.map((s) => s.id), SETTINGS.map((s) => s.id));
+  void timeline;
 });
