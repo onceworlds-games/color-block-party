@@ -283,3 +283,17 @@ test('shoves: a bot knocked 1.6 tiles, one landing on a person becomes an event'
   void placePoints;
   void roundResult;
 });
+
+test('a full house of people (no bots needed) and a table just over the bot line', () => {
+  for (const n of [9, 12]) {
+    const humans = Array.from({ length: n }, (_, i) => new SimHuman(`p${i + 1}`, 40 + i, { latency: 60 + i * 20 }));
+    const r = playMatch({ seed: 5 + n, humans, rounds: 1, noFF: false, onTick: (e) => checkBodies(e) });
+    const g = r.engine.g;
+    assert.equal(g.phase, 'final');
+    assert.equal(g.ids.length, n, 'no bots when there are more people than the table');
+    assert.equal(r.engine.bots.size, 0);
+    assert.equal(r.ended.length, 1);
+    assert.ok(r.ended[0].win.length >= 1);
+    assert.equal(r.engine.snapshot(r.now).p.length, 0);
+  }
+});

@@ -154,10 +154,6 @@ export const sfx = {
     tone(190, 0.14, { type: 'sine', vol: 0.3 * vol, slide: 2.4 });
     tone(450, 0.34, { type: 'sine', vol: 0.26 * vol, at: 0.12, slide: 0.5, vib: 0.06 });
   }),
-  bump: safe(() => {
-    tone(130, 0.12, { type: 'sine', vol: 0.3, slide: 0.5 });
-    noise(0.06, { filter: 'lowpass', freq: 900, vol: 0.2 });
-  }),
   /** "Wheee": falling into the dark. */
   fall: safe((vol = 1) => {
     tone(620, 0.22, { type: 'sine', vol: 0.26 * vol, slide: 1.7, vib: 0.03 });
@@ -196,11 +192,6 @@ export const sfx = {
     tone(262, 0.8, { type: 'triangle', vol: 0.2, at: 0.96 });
     for (let i = 0; i < 6; i++) tone(1568 + i * 140, 0.08, { type: 'sine', vol: 0.08, at: 1.0 + i * 0.07 });
   }),
-  coin: safe((i = 0) => {
-    tone(880 + i * 90, 0.07, { type: 'square', vol: 0.1 });
-    tone(1320 + i * 90, 0.12, { type: 'square', vol: 0.1, at: 0.05 });
-  }),
-  ghost: safe(() => tone(420, 0.4, { type: 'sine', vol: 0.12, slide: 0.6, vib: 0.05 })),
 };
 
 // ---------------------------------------------------------------- music

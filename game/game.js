@@ -103,6 +103,7 @@ export class Game {
     this.demoActors = [];
     this.tmpBot = { x: 0, y: 0, vx: 0, vy: 0, ang: 0, fl: 0 };
     this.brainOut = { ix: 0, iy: 0, push: false };
+    this.aim = { x: 0, y: 0 };
     this.demoCtx = { phase: 'free', step: 0, now: 0, ca: 0, colors: null, call: 0, chars: [], n: 0 };
     this.initDemo();
     this.bindRoom(room);
@@ -162,6 +163,13 @@ export class Game {
       // settings events are optional
     }
     this.canvas.addEventListener('pointerdown', (e) => this.tap(e.clientX, e.clientY));
+    // iPhones start sound on the lift of a tap, not the touch: ask again then
+    for (const type of ['pointerup', 'touchend', 'click']) {
+      addEventListener(type, () => {
+        unlock();
+        this.applyMusic(true);
+      });
+    }
     addEventListener('keydown', (e) => {
       unlock();
       if (this.titleUp && !e.repeat && (e.code === 'Enter' || e.code === 'Space')) this.play();
@@ -400,8 +408,10 @@ export class Game {
     fx.reset();
     music.uncut();
     this.bpm = 124;
-    const spot = this.lobbySpot();
-    resetChar(this.me, spot.x, spot.y);
+    if (prev === 'playing') {
+      const spot = this.lobbySpot();
+      resetChar(this.me, spot.x, spot.y);
+    }
     this.roundAt = this.clock;
     if (prev === 'playing' && this.lastG && this.lastG.phase === 'final') this.results = { g: this.lastG, at: this.clock };
     this.lastG = null;
@@ -627,6 +637,14 @@ export class Game {
     }
     if (this.pushBuf > 0) this.pushBuf -= DT;
     if (this.spectating) return;
+    if (push && me.st === 0 && me.cd <= 0 && me.pushT <= 0 && me.knockT <= 0) {
+      // a little help aiming: a shove from standing still, or toward someone close, goes at them
+      const aim = this.aimAt(me, ix, iy);
+      if (aim) {
+        ix = aim.x;
+        iy = aim.y;
+      }
+    }
     stepChar(me, ix, iy, push, DT, this.floorSim);
     if (me.evPush) {
       me.evPush = false;
@@ -643,6 +661,29 @@ export class Game {
         this.hitLanded(o);
       }
     }
+  }
+
+  /** The direction to the nearest dancer within reach of a shove, if you're standing still or already heading roughly their way. */
+  aimAt(me, ix, iy) {
+    const len = Math.hypot(ix, iy);
+    let best = null;
+    let bestD = 1.9;
+    for (let i = 0; i < this.others.length; i++) {
+      const o = this.others[i];
+      const dx = o.x - me.x;
+      const dy = o.y - me.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 1e-3 || d >= bestD) continue;
+      if (len > 0.25 && (dx * ix + dy * iy) / (d * len) < 0.5) continue;
+      bestD = d;
+      best = o;
+    }
+    if (!best) return null;
+    const dx = best.x - me.x;
+    const dy = best.y - me.y;
+    this.aim.x = dx / bestD;
+    this.aim.y = dy / bestD;
+    return this.aim;
   }
 
   /** Your shove reached someone: stars, a boing and a tiny freeze, right now. */
@@ -787,6 +828,7 @@ export class Game {
       const isMe = id === this.meId;
       if (isMe && this.spectating) continue;
       const bot = isBotId(id);
+      if (!isMe && !bot && !this.room.players.has(id)) continue; // gone from the room: not on the floor any more
       const a = this.pooled(id);
       a.me = isMe;
       a.bot = bot;

@@ -41,8 +41,8 @@ function drawAll(ctx, view, actors, t) {
 // ---------------------------------------------------------------- the pictures
 function cover(ctx, view, w, h) {
   const t = 2.4;
-  const s = 60;
-  view.place(s, (w - COLS * s) / 2, h - ROWS * s - 30);
+  const s = 64;
+  view.place(s, (w - COLS * s) / 2, h - ROWS * s - 22);
   drawBackdrop(ctx, view, t, 0.5);
   drawSpeakers(ctx, view, 0.7);
   const f = floorFor(3, 4); // BLUE, with only the blue tiles staying and the rest falling
@@ -130,7 +130,8 @@ function win(ctx, view, w, h) {
     stars.push({ a: dancer(0, 0, b.who + 8, { hop: b.place === 1 ? 1 : 0.35, seed: 30 + b.who * 50 }), pv, b });
   }
   for (const e of stars) drawActor(ctx, e.pv, e.a, t + e.b.place * 0.13);
-  drawCrown(ctx, cx, base - 210 - 150 * 1.95 + 16, 74);
+  const first = stars[0];
+  drawCrown(ctx, cx, base - 210 - 150 * 1.62 - Math.abs(Math.sin((t + first.b.place * 0.13) * 8 + first.a.seed)) * 0.4 * 150, 75);
   fx.burst(6, 5.5, 46);
   fx.confetti(6, -1, 90, 13);
   fx.update(0.85);

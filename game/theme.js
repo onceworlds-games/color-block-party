@@ -4,12 +4,7 @@ export const FONT = '"Lilita One", "Arial Black", Impact, system-ui, sans-serif'
 export const INK = '#1b0f33';
 
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
-export const lerp = (a, b, t) => a + (b - a) * t;
 export const easeOut = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
-export const easeInOut = (t) => {
-  const x = clamp(t, 0, 1);
-  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-};
 /** 0 to 1 with an overshoot: a pop. */
 export const easeBack = (t) => {
   const x = clamp(t, 0, 1);

@@ -241,21 +241,27 @@ export function drawHud(ctx, view, o) {
   // the round, then the swatch with the colour's name, then the bar
   ctx.font = `${22 * u}px ${FONT}`;
   const nameW = o.call >= 0 ? ctx.measureText(COLORS[o.call].name).width : 0;
+  const nameBox = Math.max(nameW, 84 * u); // the same room whatever the colour (and before the call), so nothing shifts
   const sw = 50 * u;
   const rw = 78 * u;
-  const rowW = rw + 10 * u + (o.call >= 0 ? sw + 10 * u + Math.max(nameW, 70 * u) : 0);
+  const rowW = rw + 10 * u + sw + 10 * u + nameBox;
   const x0 = m.narrow ? Math.max(8, view.w / 2 - rowW / 2) : Math.max(136, view.w / 2 - rowW / 2);
   pill(ctx, x0, top + 4 * u, rw, 30 * u, 'rgba(10,3,28,0.75)', INK, 3);
   outlined(ctx, `ROUND ${o.round}/${o.rounds}`, x0 + rw / 2, top + 19.5 * u, 13.5 * u, { width: 0.2 });
   if (o.call >= 0) {
     const c = COLORS[o.call];
     const age = Math.max(0, o.callAge);
-    const pop = age < 0.4 ? easeBack(age / 0.4) : 1;
+    // the call: a big swatch pops in the middle of the screen and flies up to its place in the corner
+    const fly = age < 0.5 ? 1 - easeOut(age / 0.5) : 0;
+    const grow = age < 0.12 ? age / 0.12 : 1;
     const sx = x0 + rw + 10 * u;
+    const hx = sx + sw / 2;
+    const hy = top + sw / 2 + 2 * u;
     ctx.save();
-    ctx.translate(sx + sw / 2, top + sw / 2 + 2 * u);
-    ctx.scale(pop, pop);
-    ctx.rotate((1 - pop) * 0.6);
+    ctx.translate(hx + (view.w / 2 - hx) * fly, hy + (view.h * 0.42 - hy) * fly);
+    ctx.rotate(fly * 0.22);
+    const sc = (1 + 2.2 * fly) * grow;
+    ctx.scale(sc, sc);
     roundRect(ctx, -sw / 2, -sw / 2 + 4 * u, sw, sw, 12 * u);
     ctx.fillStyle = shade(c.hex, -0.5);
     ctx.fill();
@@ -268,11 +274,12 @@ export function drawHud(ctx, view, o) {
     fillSymbol(ctx, c.symbol, 0, 0, sw * 0.26, '#fff', 0.1);
     ctx.restore();
     const flash = o.warn > 0 && Math.floor(o.t * 10) % 2 === 0;
-    outlined(ctx, c.name, sx + sw + 10 * u + Math.max(nameW, 70 * u) / 2, top + sw / 2 + 2 * u, 26 * u * (0.85 + 0.15 * pop), { fill: flash ? '#ffe45c' : '#fff', width: 0.2, alpha: pop });
+    const nameA = clamp((age - 0.25) / 0.25, 0, 1);
+    outlined(ctx, c.name, sx + sw + 10 * u + nameBox / 2, hy, 26 * u * (0.85 + 0.15 * nameA), { fill: flash ? '#ffe45c' : '#fff', width: 0.2, alpha: nameA });
     // the time bar
     const bx = sx;
     const by = top + sw + 8 * u;
-    const bw = sw + 10 * u + Math.max(nameW, 70 * u);
+    const bw = sw + 10 * u + nameBox;
     roundRect(ctx, bx, by, bw, 11 * u, 6 * u);
     ctx.fillStyle = 'rgba(10,3,28,0.8)';
     ctx.fill();
@@ -484,7 +491,7 @@ export function drawPodium(ctx, view, o) {
     const spec = BLOCK[place];
     const delay = place === 0 ? 0.9 : place === 1 ? 0.5 : 0.2;
     const grow = easeBack((o.age - delay) / 0.45);
-    const bh = Math.max(0, regionH * spec.h * 0.62 * grow);
+    const bh = Math.max(0, regionH * spec.h * 0.75 * grow);
     const x = startX + k * (bw + gap);
     const y = bottom - bh;
     if (bh > 1) {
@@ -503,7 +510,7 @@ export function drawPodium(ctx, view, o) {
     if (o.age > delay + 0.15) {
       const drop = clamp((o.age - delay - 0.15) / 0.3, 0, 1);
       const a = podActor;
-      podView.s = clamp(bw * 0.78, 40, 100 * u);
+      podView.s = clamp(bw * 0.7, 40, 92 * u);
       podView.ox = x + bw / 2;
       podView.oy = y - (1 - easeBack(drop)) * podView.s * 0.7;
       a.color = e.color;
@@ -515,7 +522,7 @@ export function drawPodium(ctx, view, o) {
       a.hop = place === 0 ? 1 : 0;
       a.age = 9;
       drawActor(ctx, podView, a, o.t);
-      if (place === 0) drawCrown(ctx, podView.ox, podView.oy - podView.s * 1.95 - Math.abs(Math.sin(o.t * 8)) * podView.s * 0.3, podView.s * 0.5);
+      if (place === 0) drawCrown(ctx, podView.ox, podView.oy - podView.s * 1.62 - Math.abs(Math.sin(o.t * 8 + a.seed)) * 0.4 * podView.s, podView.s * 0.5);
     }
   }
   // below the top three: where you finished
