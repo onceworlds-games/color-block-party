@@ -49,19 +49,15 @@ test('a whole session on the real client code', async () => {
   const game = new Game({ ow, room, canvas: dom.canvas });
   game.start();
 
-  // the title: the logo and one PLAY button
-  frames(30);
-  assert.ok(game.titleUp);
-  assert.ok(seen.has('PLAY'));
-  assert.equal(controlsSet.at(-1) ?? null, null, 'no touch controls on the title');
-  assert.equal(FakeAudioContext.made, 0, 'sound waits for a tap');
-
-  dom.tap();
-  assert.ok(!game.titleUp);
-  assert.equal(FakeAudioContext.made, 1, 'the PLAY tap starts the sound');
+  // the lobby at once: nothing to press first, and nothing of its own that says Ready
   frames(60);
-  assert.ok(seen.has('ROUNDS') && seen.has('SPEED') && seen.has('Normal') && seen.has('READY?'));
+  assert.ok(!seen.has('PLAY') && !seen.has('READY?') && !seen.has('START'));
+  assert.ok(seen.has('ROUNDS') && seen.has('SPEED') && seen.has('Normal'));
+  assert.equal(FakeAudioContext.made, 0, 'sound waits for a tap');
   assert.deepEqual(controlsSet.at(-1), { stick: 'analog', buttons: [{ id: 'push', label: 'Push', key: ' ' }] });
+
+  dom.tap(1, 1);
+  assert.equal(FakeAudioContext.made, 1, 'the first tap starts the sound');
 
   // the host taps a setting and it changes
   const chip = game.chips.rects[0];
@@ -85,8 +81,7 @@ test('a whole session on the real client code', async () => {
     room.setReady(true);
     assert.equal(room.match.phase, 'starting');
     frames(3 * 60 + 20);
-    for (const n of ['3', '2', '1']) assert.ok(seen.has(n), `the countdown shows ${n}`);
-    assert.ok(seen.has('GO!'), 'and GO!');
+    assert.ok(!seen.has('GO!'), 'nothing after the platform\'s 3-2-1');
     assert.equal(room.match.phase, 'playing');
     const rng = makeRng(m);
     let held = '';
@@ -109,8 +104,8 @@ test('a whole session on the real client code', async () => {
     if (held) dom.keyup(held);
     frames(1);
     assert.equal(room.match.phase, 'lobby', `match ${m} ended`);
-    for (const scene of ['wait', 'step', 'end', 'board', 'final']) assert.ok(phases.has(scene), `match ${m} showed the ${scene} screen`);
-    assert.ok(seen.has('ROUND 1'), 'the round banner');
+    for (const scene of ['step', 'end', 'board', 'final']) assert.ok(phases.has(scene), `match ${m} showed the ${scene} screen`);
+    assert.ok(!seen.has('ROUND 1') && seen.has('ROUND 2'), 'a banner from the second round on: the first follows the platform\'s 3-2-1 with nothing added');
     assert.ok(seen.has('Stand on the color!'));
     assert.ok(['RED', 'YELLOW', 'GREEN', 'BLUE', 'PURPLE', 'ORANGE'].some((n) => seen.has(n)), 'the call');
     assert.ok(seen.has('SCORES') && seen.has('RESULTS'));
@@ -230,7 +225,7 @@ test('every screen size draws: a phone held both ways, a tablet, a wide window',
   assert.equal(errors.length, 0);
 });
 
-test('a page that opens in the middle of a match: the title waits for a tap, and its tap lets the match through', async () => {
+test('a page that opens in the middle of a match goes straight to it', async () => {
   const ow = makeStandalone();
   const room = await ow.rooms.join(JOIN);
   room.setReady(true);
@@ -239,10 +234,6 @@ test('a page that opens in the middle of a match: the title waits for a tap, and
   game.start();
   frames(3 * 60 + 40);
   assert.equal(room.match.phase, 'playing');
-  assert.ok(game.titleUp);
-  frames(60);
-  dom.tap();
-  assert.ok(!game.titleUp);
   frames(60 * 6);
   assert.equal(errors.length, 0);
 });

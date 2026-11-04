@@ -433,7 +433,7 @@ function drawFace(ctx, x, y, r, o) {
 
 /**
  * One dancer. `a`: { x, y (tiles), vx, vy, ang, ps, kn, st (0 up, 1 falling, 2 ghost), ft (seconds falling), age (seconds since it
- * appeared), color, name, bot, me, av, seed, ready, hop (0 to 1), you (seconds since the round began, or -1) }.
+ * appeared), color, name, bot, me, av, seed, hop (0 to 1), you (seconds since the round began, or -1) }.
  */
 export function drawActor(ctx, view, a, t) {
   const s = view.s;
@@ -583,35 +583,13 @@ export function drawActor(ctx, view, a, t) {
   }
   ctx.restore();
 
-  // name tag, ready check and the "you" arrow, upright and unscaled
+  // name tag and the "you" arrow, upright and unscaled
   if (falling || a.age < 0.2 || a.noTag) return;
   const top = y + lift - 1.28 * s * scale;
   const size = clamp(s * 0.36, 11, 20);
   ctx.globalAlpha = ghost ? 0.55 : 1;
   outlined(ctx, tag(a.name), x, top, size, { fill: a.me ? '#ffe45c' : '#fff', width: 0.24 });
-  let above = top - size * 0.95;
-  if (a.ready) {
-    const ra = a.readyAge ?? 1;
-    const pop = ra < 0.3 ? easeBack(ra / 0.3) : 1;
-    const cr = s * 0.3 * pop;
-    ctx.fillStyle = '#2fd46b';
-    ctx.lineWidth = Math.max(2, s * 0.07);
-    ctx.strokeStyle = INK;
-    ctx.beginPath();
-    ctx.arc(x, above - cr * 0.9, cr, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = Math.max(2.5, s * 0.09);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x - cr * 0.45, above - cr * 0.85);
-    ctx.lineTo(x - cr * 0.1, above - cr * 0.5);
-    ctx.lineTo(x + cr * 0.5, above - cr * 1.25);
-    ctx.stroke();
-    above -= cr * 2.1;
-  }
+  const above = top - size * 0.95;
   if (a.me && a.you >= 0 && a.you < 3) {
     const bounce = Math.abs(Math.sin(t * 6)) * s * 0.18;
     const ay = above - s * 0.12 - bounce;

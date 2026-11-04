@@ -18,7 +18,7 @@ function sizeOf(name) {
 function dancer(x, y, i, o = {}) {
   return {
     id: `p${i}`, name: '', x, y, vx: 0, vy: 0, ang: Math.PI / 2, ps: false, kn: false, gh: false, st: 0, ft: 0, age: 9,
-    color: PLAYER_COLORS[i % 12], bot: true, me: false, av: null, seed: 20 + i * 37, ready: false, readyAge: 9, hop: 0, you: -1, noTag: true, ...o,
+    color: PLAYER_COLORS[i % 12], bot: true, me: false, av: null, seed: 20 + i * 37, hop: 0, you: -1, noTag: true, ...o,
   };
 }
 

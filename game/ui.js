@@ -1,4 +1,4 @@
-// Screens drawn on the canvas: the title, the lobby's settings, the countdown, the round banner, the call HUD, the winner,
+// Screens drawn on the canvas: the lobby's settings, the round banner, the call HUD, the winner,
 // the scoreboard and the podium. Labels are one to three words; numbers are big; icons beat words.
 import { COLORS, ordinal } from './rules.js';
 import { drawActor, drawHead } from './draw.js';
@@ -17,8 +17,7 @@ function pill(ctx, x, y, w, h, fill, line = INK, lw = 3) {
   }
 }
 
-// ---------------------------------------------------------------- title
-const playRect = { x: 0, y: 0, w: 0, h: 0 };
+// ---------------------------------------------------------------- the logo (the store's pictures)
 
 /** Chunky letters, each in the next tile colour, bouncing. */
 export function drawLogo(ctx, text, cx, cy, size, t, offset) {
@@ -44,49 +43,6 @@ export function drawLogo(ctx, text, cx, cy, size, t, offset) {
     x += wd;
     i++;
   }
-}
-
-/** The title: the logo and one big PLAY button. Returns the button's rectangle (a shared object). */
-export function drawTitle(ctx, view, t) {
-  const { w, h } = view;
-  ctx.fillStyle = 'rgba(14,5,34,0.45)';
-  ctx.fillRect(0, 0, w, h);
-  const A = Math.min(h * 0.15, w * 0.078);
-  drawLogo(ctx, 'COLOR BLOCK', w / 2, h * 0.26, A, t, 0);
-  drawLogo(ctx, 'PARTY', w / 2, h * 0.26 + A * 1.3, A * 1.55, t, 3);
-  const bw = clamp(w * 0.3, 180, 320);
-  const bh = clamp(h * 0.17, 60, 92);
-  const cx = w / 2;
-  const cy = h * 0.77;
-  playRect.x = cx - bw / 2;
-  playRect.y = cy - bh / 2;
-  playRect.w = bw;
-  playRect.h = bh;
-  const pulse = 1 + Math.sin(t * 4.2) * 0.035;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(pulse, pulse);
-  pill(ctx, -bw / 2, -bh / 2 + bh * 0.1, bw, bh, '#127a3c', INK, 4);
-  pill(ctx, -bw / 2, -bh / 2, bw, bh, '#2fd46b', INK, 4);
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  roundRect(ctx, -bw / 2 + bh * 0.25, -bh / 2 + bh * 0.1, bw - bh * 0.5, bh * 0.16, bh * 0.08);
-  ctx.fill();
-  // a white triangle, then the word
-  const ts = bh * 0.3;
-  ctx.fillStyle = '#fff';
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 3;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-bw * 0.27, -ts);
-  ctx.lineTo(-bw * 0.27 + ts * 1.5, 0);
-  ctx.lineTo(-bw * 0.27, ts);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  outlined(ctx, 'PLAY', bw * 0.07, 2, bh * 0.62, { width: 0.22 });
-  ctx.restore();
-  return playRect;
 }
 
 // ---------------------------------------------------------------- lobby
@@ -147,29 +103,6 @@ export function drawFloorHint(ctx, view, text, t) {
   outlined(ctx, text, view.ox + 6 * s, view.oy + 4 * s + Math.sin(t * 2) * s * 0.05, s * 0.95, { width: 0.2, alpha: 0.92 });
 }
 
-/** A bouncing arrow toward the platform's Ready / Start strip at the bottom (it stays above the clear band). */
-export function drawReadyCue(ctx, view, text, t) {
-  const u = unit(view);
-  const x = view.w / 2;
-  const y = view.h - 96 * u - 14 * u - Math.abs(Math.sin(t * 5)) * 9 * u;
-  ctx.fillStyle = '#2fd46b';
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 4;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x - 17 * u, y - 18 * u);
-  ctx.lineTo(x - 7 * u, y - 18 * u);
-  ctx.lineTo(x - 7 * u, y - 34 * u);
-  ctx.lineTo(x + 7 * u, y - 34 * u);
-  ctx.lineTo(x + 7 * u, y - 18 * u);
-  ctx.lineTo(x + 17 * u, y - 18 * u);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  outlined(ctx, text, x, y - 52 * u, 24 * u, { fill: '#7dff9e', width: 0.22 });
-}
-
 /** A small "watching" label for someone who came after the match began (the platform keeps its own note at the top). */
 export function drawWatching(ctx, view) {
   const u = unit(view);
@@ -179,22 +112,7 @@ export function drawWatching(ctx, view) {
   outlined(ctx, 'WATCHING', view.w / 2, y + 15.5 * u, 16 * u, { width: 0.2 });
 }
 
-// ---------------------------------------------------------------- countdown and banners
-const COUNT_COLORS = ['#2f8cff', '#2fd46b', '#ffd23f', '#ff4d5e'];
-
-/** The big 3, 2, 1, GO!. `frac` is how far through this number's second it is. */
-export function drawCountdown(ctx, view, num, frac) {
-  const size = Math.min(view.h * 0.62, view.w * 0.36);
-  const pop = easeBack(frac * 2.2);
-  const fade = num === 0 ? 1 - clamp((frac - 0.6) / 0.4, 0, 1) : 1;
-  ctx.save();
-  ctx.translate(view.w / 2, view.h * 0.46);
-  ctx.rotate(Math.sin(frac * 6) * 0.05);
-  ctx.scale(0.4 + pop * 0.6, 0.4 + pop * 0.6);
-  outlined(ctx, num === 0 ? 'GO!' : String(num), 0, 0, num === 0 ? size * 0.82 : size, { fill: COUNT_COLORS[clamp(num, 0, 3)], width: 0.2, shadow: size * 0.06, alpha: fade });
-  ctx.restore();
-}
-
+// ---------------------------------------------------------------- banners
 /** A band across the screen with one or two short lines: "ROUND 2" / "Stand on the color!". `age` in seconds, `dur` how long it stays. */
 export function drawBanner(ctx, view, line1, line2, age, dur) {
   const u = unit(view);

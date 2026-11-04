@@ -123,7 +123,6 @@ function makeStubRoom() {
     },
     presenceAt: () => null,
     send() {},
-    hideLobby() {},
     clearReady() {},
     endMatch() {
       const previous = room.match;

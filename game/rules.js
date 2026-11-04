@@ -38,8 +38,7 @@ export const SETTINGS = [
 ];
 
 // Times, in match milliseconds.
-export const GO_MS = 900; // the match's first moments belong to the big GO!
-export const BANNER_MS = 1500; // the round banner, floor already there
+export const BANNER_MS = 1500; // before a round's first floor (with a banner, from the second round on)
 export const PRE_MS = 600; // the new floor is up, the call hasn't come yet
 export const DOWN_MS = 1000; // from the drop until the floor is back
 export const GRACE_MS = 600; // the host waits this long after a drop for the players' own verdicts

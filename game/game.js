@@ -1,11 +1,10 @@
 // The page's game: your own dancer (simulated here, at 60 Hz), the screens, the effects and the sounds, all driven by the room.
 // The host's page also runs the rules (net.js -> engine.js); everyone's page draws from the same record, so a reload or a change of
 // host carries on. Per-round things are keyed by the round's id and thrown away when it changes.
-import { BANNER_MS, GO_MS, PLAYER_COLORS, SETTINGS, fellCode, makeFloor, rankMatch, roundSpawns, timeline } from './rules.js';
+import { BANNER_MS, PLAYER_COLORS, SETTINGS, fellCode, makeFloor, rankMatch, roundSpawns, timeline } from './rules.js';
 import { DT, FALL_TIME, applyKnock, newChar, newFloor, onFloor, pushContact, resetChar, separate, snapToFloor, startFall, stepChar } from './sim.js';
 import { isBotId } from './engine.js';
-import { newBrain, think } from './bots.js';
-import { makeRng, strSeed } from './rng.js';
+import { strSeed } from './rng.js';
 import { View, drawActors, drawBackdrop, drawFloor, drawSpeakers } from './draw.js';
 import * as ui from './ui.js';
 import { fx } from './fx.js';
@@ -23,7 +22,7 @@ const BPM = { chill: 112, normal: 124, fast: 136 };
 
 const newActor = (id) => ({
   id, name: '', x: 0, y: 0, vx: 0, vy: 0, ang: Math.PI / 2, ps: false, kn: false, gh: false, st: 0, ft: 0, age: 9, color: '#fff',
-  bot: false, me: false, av: null, seed: 0, ready: false, readyAge: 9, hop: 0, you: -1, noTag: false,
+  bot: false, me: false, av: null, seed: 0, ready: false, hop: 0, you: -1, noTag: false,
 });
 
 export class Game {
@@ -35,14 +34,11 @@ export class Game {
     this.input = createInput(() => this.ow.controls);
     this.me = newChar(6, 4);
     this.floorSim = newFloor();
-    this.lobbyFloor = newFloor();
     this.fl = { kind: 'party', t: 0, beat: 0, popT: 99, colors: null, call: 0, dropT: -1, warn: 0 };
     this.clock = 0; // animation time, seconds
     this.last = 0;
     this.acc = 0;
     this.freezeUntil = 0;
-    this.titleUp = true;
-    this.lobbyHidden = false;
     this.flash = 0;
     this.closed = null;
     this.stats = { matches: 0, wins: 0, pushes: 0 };
@@ -96,16 +92,10 @@ export class Game {
     this.errors = 0;
     this.chips = null;
     this.chipsOn = false;
-    this.playRect = null;
     this.closedRect = null;
     this.settingList = SETTINGS.map((s) => ({ id: s.id, label: s.label, text: '' }));
-    this.demo = [];
-    this.demoActors = [];
     this.tmpBot = { x: 0, y: 0, vx: 0, vy: 0, ang: 0, fl: 0 };
-    this.brainOut = { ix: 0, iy: 0, push: false };
     this.aim = { x: 0, y: 0 };
-    this.demoCtx = { phase: 'free', step: 0, now: 0, ca: 0, colors: null, call: 0, chars: [], n: 0 };
-    this.initDemo();
     this.bindRoom(room);
   }
 
@@ -141,7 +131,6 @@ export class Game {
     this.closed = null;
     try {
       const room = await this.ow.rooms.join(JOIN);
-      this.titleUp = false;
       this.bindRoom(room);
     } catch {
       this.closed = 'disconnected';
@@ -170,10 +159,7 @@ export class Game {
         this.applyMusic(true);
       });
     }
-    addEventListener('keydown', (e) => {
-      unlock();
-      if (this.titleUp && !e.repeat && (e.code === 'Enter' || e.code === 'Space')) this.play();
-    });
+    addEventListener('keydown', () => unlock());
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) unlock();
     });
@@ -247,10 +233,6 @@ export class Game {
       if (this.closedRect && inside(this.closedRect, x, y)) this.rejoin();
       return;
     }
-    if (this.titleUp) {
-      this.play();
-      return;
-    }
     if (this.chipsOn && this.chips && this.room.isHost) {
       for (let i = 0; i < this.chips.count; i++) {
         const r = this.chips.rects[i];
@@ -269,16 +251,6 @@ export class Game {
     const next = values[(values.indexOf(this.room.settings[id]) + 1) % values.length];
     this.room.setSetting(id, next);
     sfx.pop(1.1);
-  }
-
-  play() {
-    if (!this.titleUp) return;
-    this.titleUp = false;
-    unlock();
-    this.applyMusic(true);
-    this.room.hideLobby(false);
-    this.roundAt = this.clock;
-    sfx.pop(1.2);
   }
 
   // ---------------------------------------------------------------- one frame
@@ -302,7 +274,6 @@ export class Game {
       }
       if (n >= 6) this.acc = 0;
     }
-    if (this.titleUp && this.scene === 'lobby') this.stepDemo();
     this.buildActors();
     this.publish();
     this.net.hostTick();
@@ -311,9 +282,9 @@ export class Game {
     this.draw();
   }
 
-  /** What controls the screen asks for: the stick and Push while you can move, nothing on the title, the results and for watchers. */
+  /** What controls the screen asks for: the stick and Push while you can move, nothing on the results and for watchers. */
   syncControls() {
-    const want = this.titleUp || this.spectating || this.scene === 'board' || this.scene === 'final' ? '' : 'play';
+    const want = this.spectating || this.scene === 'board' || this.scene === 'final' ? '' : 'play';
     if (want === this.controlsKey) return;
     this.controlsKey = want;
     try {
@@ -351,13 +322,7 @@ export class Game {
       this.onPhase(phase, this.prevPhase);
       this.prevPhase = phase;
     }
-    if (this.titleUp && phase === 'lobby' && !this.lobbyHidden) {
-      room.hideLobby(true);
-      this.lobbyHidden = true;
-    } else if (!this.titleUp) {
-      this.lobbyHidden = false;
-    }
-    // the countdown's beeps, and the GO!
+    // the platform draws the 3-2-1: its beeps are the game's own, and a last one as play begins
     if (phase === 'starting' && fin(m.startsAt)) {
       const left = m.startsAt - ow.now();
       const num = left > 0 ? Math.min(3, Math.ceil(left / 1000)) : 0;
@@ -700,8 +665,6 @@ export class Game {
   /** Tells the room where you are (the SDK sends at most 20 a second). */
   publish() {
     if (this.spectating) return;
-    const inMatch = this.phase === 'playing';
-    if (!inMatch && this.titleUp) return; // still on the title: not in the arena yet
     const me = this.me;
     const rn = this.g && this.g.rid === this.rid ? this.g.round : 0;
     const L = this.net.local;
@@ -726,30 +689,6 @@ export class Game {
   }
 
   // ---------------------------------------------------------------- everyone on the floor
-  initDemo() {
-    for (let i = 0; i < 6; i++) {
-      const c = newChar(1.6 + (i % 3) * 4.2, 1.8 + Math.floor(i / 3) * 3.6);
-      c.id = `demo${i}`;
-      this.demo.push({ c, brain: newBrain(makeRng(900 + i * 7)) });
-      this.demoActors.push(newActor(`demo${i}`));
-    }
-  }
-
-  stepDemo() {
-    const ctx = this.demoCtx;
-    ctx.now = this.clock * 1000;
-    ctx.chars.length = 0;
-    for (const d of this.demo) ctx.chars.push(d.c);
-    ctx.n = ctx.chars.length;
-    const out = this.brainOut;
-    // a fixed step per frame is plenty for background dancers
-    for (const d of this.demo) {
-      think(d.brain, d.c, ctx, out);
-      stepChar(d.c, out.ix, out.iy, false, 1 / 60, this.lobbyFloor);
-      separate(d.c, ctx.chars, ctx.n, this.lobbyFloor, 3);
-    }
-  }
-
   avatar(id) {
     let e = this.avatars.get(id);
     if (e) return e.img;
@@ -800,24 +739,6 @@ export class Game {
     others.length = 0;
     const scene = this.scene;
     if (scene === 'board' || scene === 'final') return;
-    if (this.titleUp && scene === 'lobby') {
-      this.demo.forEach((d, i) => {
-        const a = this.demoActors[i];
-        a.x = d.c.x;
-        a.y = d.c.y;
-        a.vx = d.c.vx;
-        a.vy = d.c.vy;
-        a.ang = Math.atan2(d.c.fy, d.c.fx);
-        a.color = PLAYER_COLORS[(i * 2 + 1) % 12];
-        a.bot = true;
-        a.noTag = true;
-        a.seed = 40 + i * 13;
-        a.age = 9;
-        a.st = 0;
-        list.push(a);
-      });
-      return;
-    }
     const g = scene === 'step' || scene === 'end' ? this.g : null;
     const sorted = g ? null : [...this.room.players.keys()].sort();
     const ids = g ? g.ids : sorted;
@@ -884,9 +805,9 @@ export class Game {
       a.av = bot ? null : this.avatar(id);
       a.color = PLAYER_COLORS[this.colorIndex(id, g, sorted) % PLAYER_COLORS.length];
       a.seed = strSeed(id) & 0xffff;
-      a.ready = !g && this.phase !== 'playing' && this.room.players.get(id)?.ready === true;
+      a.ready = !g && this.phase !== 'playing' && this.room.players.get(id)?.ready === true; // for the sound
       a.hop = scene === 'end' && g && g.win.includes(id) ? 1 : 0;
-      a.you = a.me && !this.titleUp && (scene === 'step' || scene === 'lobby' || scene === 'wait') ? this.clock - this.roundAt : -1;
+      a.you = a.me && (scene === 'step' || scene === 'lobby' || scene === 'wait') ? this.clock - this.roundAt : -1;
       this.track(a, dt);
       list.push(a);
       if (!isMe && a.st === 0) others.push(a);
@@ -905,7 +826,7 @@ export class Game {
   track(a, dt) {
     let f = this.fxs.get(a.id);
     if (!f) {
-      f = { gh: a.gh, fellAt: a.gh ? -99 : 0, ps: false, kn: false, spawnAt: this.clock, dust: 0, ready: false, readyAt: -9 };
+      f = { gh: a.gh, fellAt: a.gh ? -99 : 0, ps: false, kn: false, spawnAt: this.clock, dust: 0, ready: false };
       this.fxs.set(a.id, f);
     }
     if (a.gh && !f.gh) {
@@ -939,12 +860,10 @@ export class Game {
     }
     if (a.ready && !f.ready) {
       f.ready = true;
-      f.readyAt = this.clock;
       if (!a.me) sfx.ready();
     } else if (!a.ready) {
       f.ready = false;
     }
-    a.readyAge = this.clock - f.readyAt;
   }
 
   onFall(a) {
@@ -1018,7 +937,7 @@ export class Game {
     ctx.translate(off.x, off.y);
     drawSpeakers(ctx, view, beat);
     drawFloor(ctx, view, fl);
-    if (scene === 'lobby' && !this.titleUp && !this.results && this.phase === 'lobby') ui.drawFloorHint(ctx, view, 'Stand on the color!', t);
+    if (scene === 'lobby' && !this.results && this.phase === 'lobby') ui.drawFloorHint(ctx, view, 'Stand on the color!', t);
     drawActors(ctx, view, this.actors, t);
     fx.draw(ctx, view);
     ctx.restore();
@@ -1031,20 +950,19 @@ export class Game {
   }
 
   overlays(g, t) {
-    const { ctx, view, ow, room } = this;
+    const { ctx, view, room } = this;
     const scene = this.scene;
     const now = this.matchNow;
     const u = ui.unit(view);
     this.chipsOn = false;
-    this.playRect = null;
     if (this.closed) {
       const msg = this.closed === 'kicked' ? 'You were removed' : this.closed === 'replaced' ? 'Playing in another tab' : 'Disconnected';
-      const btn = this.closed === 'disconnected' ? 'REJOIN' : this.closed === 'replaced' ? 'PLAY HERE' : 'PLAY';
+      const btn = this.closed === 'disconnected' ? 'REJOIN' : this.closed === 'replaced' ? 'PLAY HERE' : 'REJOIN';
       this.closedRect = ui.drawClosed(ctx, view, msg, btn, t);
       return;
     }
     if (scene === 'lobby' || scene === 'wait') {
-      if (scene === 'lobby' && !this.titleUp) {
+      if (scene === 'lobby') {
         if (this.results && t - this.results.at < 7) {
           this.drawResults(this.results.g, t - this.results.at + 9, t);
         } else {
@@ -1057,7 +975,6 @@ export class Game {
           }
           this.chips = ui.drawSettings(ctx, view, this.settingList, room.isHost && this.phase === 'lobby', t);
           this.chipsOn = this.phase === 'lobby';
-          if (this.phase === 'lobby' && !this.spectating) this.drawReadyCue(t);
         }
       }
     } else if (scene === 'step' && g) {
@@ -1077,7 +994,7 @@ export class Game {
         score: this.participating() ? (g.scores[this.meId] ?? 0) : null,
         top: this.spectating ? 30 * u : 0,
       });
-      if (g.step === 1 && now < g.rs + BANNER_MS) {
+      if (g.round > 1 && g.step === 1 && now < g.rs + BANNER_MS) {
         const last = g.rounds > 1 && g.round === g.rounds;
         ui.drawBanner(ctx, view, last ? 'FINAL ROUND' : `ROUND ${g.round}`, 'Stand on the color!', Math.max(0, (now - g.rs) / 1000), BANNER_MS / 1000);
       }
@@ -1098,29 +1015,6 @@ export class Game {
       if (this.spectating) ui.drawWatching(ctx, view);
     } else if (scene === 'final' && g) {
       this.drawResults(g, t - this.finalAt, t);
-    }
-    // the big countdown, then GO!
-    const m = room.match;
-    if (this.phase === 'starting' && fin(m.startsAt)) {
-      const left = m.startsAt - ow.now();
-      if (left > 0) {
-        const num = Math.min(3, Math.ceil(left / 1000));
-        ui.drawCountdown(ctx, view, num, 1 - (left - (num - 1) * 1000) / 1000);
-      }
-    } else if (this.phase === 'playing' && fin(m.startsAt)) {
-      const since = ow.now() - m.startsAt;
-      if (since >= 0 && since < GO_MS) ui.drawCountdown(ctx, view, 0, since / GO_MS);
-    }
-    if (this.titleUp) this.playRect = ui.drawTitle(ctx, view, t);
-  }
-
-  drawReadyCue(t) {
-    const { room } = this;
-    const hostOfFriends = room.isHost && room.kind !== 'public' && room.kind !== 'solo';
-    if (hostOfFriends) {
-      if (room.canStart) ui.drawReadyCue(this.ctx, this.view, 'START', t);
-    } else if (!room.me.ready) {
-      ui.drawReadyCue(this.ctx, this.view, 'READY?', t);
     }
   }
 

@@ -8,7 +8,7 @@
 // at where they stand as a backup; bots are judged exactly at the drop from their own bodies. `H` (given to `update`) is how the
 // engine sees the people: `H.info(id)` gives { x, y, gh, f, connected, pc } or null for someone who is not in the room.
 import {
-  BANNER_MS, BOARD_MS, END_MS, FINAL_MS, GO_MS, GRACE_MS, MAX_DANCERS, PRE_MS, SPEEDS, STEPS_MAX, TABLE,
+  BANNER_MS, BOARD_MS, END_MS, FINAL_MS, GRACE_MS, MAX_DANCERS, PRE_MS, SPEEDS, STEPS_MAX, TABLE,
   botNames, chooseStepSeed, computeAwards, fellCode, makeFloor, rankMatch, reactMs, roundResult, roundSpawns, timeline,
 } from './rules.js';
 import { DT, applyKnock, newChar, newFloor, onFloor, pushContact, separate, snapToFloor, startFall, stepChar } from './sim.js';
@@ -78,10 +78,10 @@ export class Engine {
     return engine;
   }
 
-  /** Starts the first round: after the big GO! (so the first banner never sits under it). */
+  /** Starts the first round, at once: the platform's 3-2-1 has just ended. */
   start(now) {
     this.simNow = now;
-    this.startRound(1, Math.max(now, GO_MS));
+    this.startRound(1, now);
   }
 
   set(patch) {
